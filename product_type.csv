@@ -1,0 +1,31 @@
+Internal ID,Name
+1,Product Type
+12,Product Type : Affinity - Charge
+10,Product Type : CAB
+32,Product Type : Card as a Service (CaaS)
+14,Product Type : Central Billing - Corp Charge Card
+27,Product Type : Central Billing - Credit Card
+16,Product Type : Charge Corporate Payment Plan
+8,Product Type : Cobrand - ACE
+13,Product Type : Cobrand - Charge
+18,Product Type : Cobrand - Credit
+7,Product Type : Core card - ACE
+11,Product Type : Core card - Charge
+17,Product Type : Core card - Credit
+20,Product Type : Credit Corporate Payment Plan
+5,Product Type : Diamond
+28,Product Type : Indiv Billing - Corp Card
+29,Product Type : Indiv Billing - Credit Card
+23,Product Type : Lite Card
+30,Product Type : Lite Card : DToken
+21,Product Type : Lodge
+15,Product Type : MNCC
+2,Product Type : Platinum
+25,Product Type : Purchasing Card
+9,Product Type : STAFF card - ACE
+19,Product Type : Staff card - Credit
+22,Product Type : TMP
+6,Product Type : Ultimate Platinum
+31,Product Type : Virtual Credit Card (VCC)
+3,Product Type : Visa Infinite
+4,Product Type : World

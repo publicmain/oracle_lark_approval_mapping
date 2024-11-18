@@ -1,0 +1,16 @@
+Internal ID,Name,Internal ID
+1,Scheme,1
+2,Scheme : Card Scheme,2
+4,Scheme : Card Scheme : Diners,4
+6,Scheme : Card Scheme : MASTER,6
+7,Scheme : Card Scheme : UnionPay,7
+5,Scheme : Card Scheme : VISA,5
+3,Scheme : Platform,3
+9,Scheme : Platform : Alipay,9
+8,Scheme : Platform : CEPAS,8
+101,Scheme : Platform : GRAB,101
+11,Scheme : Platform : JCB,11
+102,Scheme : Platform : PAYNOW,102
+104,Scheme : Platform : Singtel Dash,104
+10,Scheme : Platform : Wechat,10
+103,Scheme : Scheme Z Private Label,103
