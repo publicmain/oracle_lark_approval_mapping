@@ -1,49 +1,8 @@
 import pandas as pd
 from datetime import datetime
 import re
-from difflib import get_close_matches
-# 读取供应商和科目的映射关系
-vendor_file_path = 'vendor.csv' 
-gl_account_file_path = 'glaccount.csv'
-division_file_path = 'division.csv'
-product_code_file_path = 'product_code.csv'
-product_type_file_path = 'product_type.csv'
-project_code_file_path = 'project_code.csv'
-scheme_file_path = 'scheme.csv'
-df_vendor = pd.read_csv(vendor_file_path)
-df_product_code = pd.read_csv(product_code_file_path)
-df_product_type = pd.read_csv(product_type_file_path)
-df_project_code = pd.read_csv(project_code_file_path)
-df_scheme = pd.read_csv(scheme_file_path)
-df_GL = pd.read_csv(gl_account_file_path)
-df_division = pd.read_csv(division_file_path)
-vendor = df_vendor.set_index('Internal ID')['ID'].to_dict()
-GL_account = df_GL.set_index('Internal ID')['Number'].to_dict()
-division = df_division.set_index('Internal ID')['Name'].to_dict()
-product_code_dict = df_product_code.set_index('Internal ID')['Name'].to_dict()
-product_type_dict = df_product_type.set_index('Internal ID')['Name'].to_dict()
-project_code_dict = df_project_code.set_index('Internal ID')['Name'].to_dict()
-scheme_dict = df_scheme.set_index('Internal ID')['Name'].to_dict()
-business = {
-    "Acquiring" : 2,
-    "Issuing" : 3
-}
-subsidiary = {
-    "Singapore Entity": 15,
-    "CANDYPAY HOLDINGS PTE LTD": 16,
-    "DCS FINTECH HOLDINGS PTE LTD.": 1,
-    "DCS CARD CENTRE PTE LTD": 2,
-    "DCS PAYALL PTE LTD": 3,
-    "DCS PREMIER PTE. LTD.": 9,
-    "DIGITAL INCLUSION PTE. LTD": 11,
-    "SHANGHAI DALAI": 14,
-    "zz Elim Diners Club (Singapore) Private": 8,
-    "DCS INNOV PTE LTD": 6,
-    "DCS SERV PTE LTD": 5,
-    "EZY TECH PTE LTD": 4,
-    "UBIQ Payment Solutions Pte.Ltd.": 10,
-    "zz Elim EzyNet": 7
-}
+import requests
+from config import base_url,oauth,headers
 postperiod = {
     '157': 'Aug 2020',
     '158': 'Sep 2020',
@@ -108,18 +67,23 @@ postperiod = {
     '330': 'Adjust 2025 (12/31 - 12/31)',
     '366': 'FY 2026'
 }
-currency_dict = {
-    1: "SGD",
-    2: "USD",
-    4: "EUR",
-    5: "GBP",
-    6: "AUD",
-    7: "JPY",
-    8: "CNY",
-    9: "INR",
-    10: "HKD",
-    11: "MYR"
-}
+# currency_dict = {
+#     1: "SGD",
+#     2: "USD",
+#     4: "EUR",
+#     5: "GBP",
+#     6: "AUD",
+#     7: "JPY",
+#     8: "CNY",
+#     9: "INR",
+#     10: "HKD",
+#     11: "MYR"
+# }
+
+def extract_number(string):
+    # 匹配字符串开头的连续数字部分
+    match = re.match(r"^\d+", string)
+    return match.group(0) if match else None
 
 def normalize_string(s):
     """
@@ -128,111 +92,228 @@ def normalize_string(s):
     - 移除标点符号
     - 移除多余的空格
     """
-    s = s.lower()
-    s = re.sub(r'[^\w\s]', '', s)  # 移除标点符号
-    s = re.sub(r'\s+', ' ', s)     # 移除多余空格
-    s = s.strip()
-    return s
-
-# 创建一个规范化后的字典映射
-normalized_subsidiary = {normalize_string(k): v for k, v in subsidiary.items()}
-
-def mapping_entity_subsidiary(entity):
-    normalized_entity = normalize_string(entity)
-    # 尝试直接匹配
-    value = normalized_subsidiary.get(normalized_entity)
-    if value is not None:
-        return value
+    if s:  
+        s = s.lower()
+        s = re.sub(r'[^\w\s]', '', s)  # 移除标点符号
+        s = re.sub(r'\s+', ' ', s)     # 移除多余空格
+        s = s.strip()
+        return s
     else:
-        # 如果直接匹配失败，尝试模糊匹配
-        possible_matches = get_close_matches(normalized_entity, normalized_subsidiary.keys(), n=1, cutoff=0.8)
-        if possible_matches:
-            return normalized_subsidiary[possible_matches[0]]
-        else:
-            return None  # 或者根据需求返回一个默认值或抛出异常
+        return ""
 
-# 映射 Vendor
-def mapping_Vendor(Vendor):
-    name = str(Vendor).split()[0]
-    for key, value in vendor.items():
-        if name in value:
-            return key
-    return None
-def mapping_currency(currency):
-    for key, value in currency_dict.items():
-        if currency[0] in value:
-            return key
-    return None
 
-# 映射 GL Account
-def mapping_GL_Account(GL_Account):
-    result = []
-    for account in GL_Account:
-        if isinstance(account, (str, int, float)):
-            name = str(account).split()[0]
-            result.append(name)
-        else:
-            result.append(None)
-    Key = []
-    for i in result:
-        if i is None:
-            Key.append(None)
-            continue
-        found = False  
-        for key, value in GL_account.items():
-            if isinstance(value, str) and i in value:
-                Key.append(key)
-                found = True
-                break  
-        if not found:
-            Key.append(None) 
-    return Key
-
-def mapping_division(division_codes):
+def fetch_all_items(table_name, columns="*", order_by=None, limit=5000):
+    """从指定表中一次性获取所有数据，返回列表。"""
+    order_clause = f"ORDER BY {order_by}" if order_by else ""
+    query = f"""
+    SELECT {columns}
+    FROM {table_name}
+    {order_clause}
+    FETCH NEXT {limit} ROWS ONLY
     """
-    从输入字符串列表中提取代码，并在字典中查找对应的键。
-    
-    :param division_codes: 输入的字符串列表，例如 ['80110 Mgmt Accounting & Reporting', ...]
-    :param division_dict: 要搜索的字典
-    :return: 对应的键的列表，如果未找到则为 None
-    """
-    mapped_keys = []
-    
-    for division_code in division_codes:
-        # 去除前后空白字符
-        trimmed_str = division_code.strip()
-        
-        # 初始化代码变量
-        code = ''
-        
-        # 遍历字符串字符，提取开头的数字部分
-        for char in trimmed_str:
-            if char.isdigit():
-                code += char
-            else:
-                break
-        
-        if not code:
-            mapped_keys.append(None)
-            continue
-        
-        # 遍历字典查找值以提取的代码开头的项
-        key_found = None
-        for key, value in division.items():
-            if value.startswith(code):
-                key_found = key
-                break
-        mapped_keys.append(key_found)
-    
-    return mapped_keys
+    response = requests.post(base_url, headers=headers, json={"q": query}, auth=oauth)
+    response.raise_for_status()
+    data = response.json()
+    return data.get("items", [])
 
+def fetch_all_items_paged(table_name, columns="*", order_by="id", batch_size=1000):
+    """从指定表中分批次获取所有数据并合并返回，用于数据量较大的表(如vendor)。"""
+    all_items = []
+    last_id = 0
+    has_more = True
+
+    while has_more:
+        query = f"""
+        SELECT {columns}
+        FROM {table_name}
+        WHERE id > {last_id}
+        ORDER BY {order_by}
+        FETCH NEXT {batch_size} ROWS ONLY
+        """
+        response = requests.post(base_url, headers=headers, json={"q": query}, auth=oauth)
+        response.raise_for_status()
+        data = response.json()
+
+        items = data.get("items", [])
+        all_items.extend(items)
+
+        if len(items) < batch_size:
+            has_more = False
+        else:
+            last_id = max(item["id"] for item in items)
+
+    return all_items
+
+def match_item(items, target, key, partial=False):
+    """
+    当 target 是字符串：
+        - partial=False：返回与 target 全字匹配的首个 item（不区分大小写），没有则返回 None。
+        - partial=True ：返回包含 target 子串的首个 item（不区分大小写），没有则返回 None。
+
+    当 target 是列表：
+        - partial=False：返回与列表中任意字符串全字匹配的所有 items 列表（不区分大小写）。
+        - partial=True ：返回包含列表中任意字符串子串的所有 items 列表（不区分大小写）。
+    """
+    if isinstance(target, list):
+        targets_lower = [normalize_string(t).lower() for t in target if isinstance(t, str)]
+
+        if partial:
+            return [next((item for item in items if normalize_string(tl) in normalize_string(item.get(key, "")).lower()), None) for tl in targets_lower]
+        else:
+            return [next((item for item in items if normalize_string(item.get(key, "")).lower() == tl), None) for tl in targets_lower]
+
+
+    else: 
+        # target 是字符串的情况
+        target_lower = target.lower()
+        if partial:
+            return next((item for item in items if target_lower in normalize_string(item.get(key, "")).lower()), None)
+        else:
+            return next((item for item in items if normalize_string(item.get(key, "")).lower() == target_lower), None)
+        
+def match_item_exact(items, target, key):
+    """
+    精确匹配函数：匹配 target 中的第一个编号与数据库项中的 key 字段精确匹配。
+    """
+    if isinstance(target, list):
+        return [next((item for item in items if item.get(key).startswith(t.split()[0])), None) for t in target]
+    else:
+        return next((item for item in items if item.get(key).startswith(target.split()[0])), None)
+    
+def mapping_entity_subsidiary(target):
+    #print("mapping_entity_subsidiary target",target)
+    all_subsidiaries = fetch_all_items("subsidiary", columns="id, name")
+    matched = match_item(all_subsidiaries, target, "name", partial=True)
+    #print("subsidiary matched",matched)
+    if matched:
+        return matched["id"]
+    else:
+        print(f"Subsidiary with name containing '{target}' not found.")
+        return None
+
+def mapping_Vendor(target):
+
+    print("mapping_Vendor target",target)
+    all_vendors = fetch_all_items_paged("vendor", columns="id, entityid")
+    matched = match_item_exact(all_vendors, target, "entityid")
+    #print("Vendor matched",matched)
+    if matched:
+        if isinstance(matched, dict):
+            return matched["id"]
+        else:
+            return [item["id"] for item in matched if item]
+    else:
+        return None
+
+def mapping_Location(target):
+    #print("mapping_Location target",target)
+    all_locations = fetch_all_items("location", columns="id, name", order_by="id")
+    matched = match_item(all_locations, target, "name", partial=False)
+    #print("location matched",matched)
+    if matched:
+        return matched["id"]
+    else:
+        print(f"Location with name='{target}' not found.")
+        return None
+
+def mapping_GL_Account(target):
+    print("mapping_GL_Account target", target)
+    all_accounts = fetch_all_items("account", columns="id, accountsearchdisplayname", order_by="id")
+    matched = match_item_exact(all_accounts, target, "accountsearchdisplayname")
+    print("GL Account matched", matched)
+    if matched:
+        if isinstance(matched, dict):
+            return matched["id"]
+        else:
+            return [item["id"] for item in matched if item]
+    else:
+        return None
+
+def mapping_division(target):
+    #print("division target",target)
+    all_divisions = fetch_all_items("department", columns="id, name")
+    matched = match_item(all_divisions, target, "name", partial=True)
+    #print("division matched",matched)
+    if matched[0]:
+        ids = [item["id"] for item in matched]  # 提取每个匹配项的 id
+        return ids
+    else:
+        return [None] * len(target)
+    
+def mapping_business(target):
+    print("mapping_business target",target)
+    all_accounts = fetch_all_items("CUSTOMRECORD_CSEG_BUSINESS", columns="id, name", order_by="id")
+    matched = match_item(all_accounts, target, "name", partial=False)
+    print("business matched",matched)
+    if matched:
+        ids = [item["id"] for item in matched]  # 提取每个匹配项的 id
+        return ids
+    else:
+        return [None] * len(target)
+    
+def mapping_product_code(target):
+    print("mapping_product_code target",target)
+    all_accounts = fetch_all_items("classification", columns="id, name", order_by="id")
+    matched = match_item(all_accounts, target, "name", partial=True)
+    print("product code matched",matched)
+    if matched:
+        ids = [item["id"] for item in matched]  # 提取每个匹配项的 id
+        return ids
+    else:
+        return [None] * len(target)
+        
+
+def mapping_product_type(target):
+    print("mapping_product_type target",target)
+    all_accounts = fetch_all_items("CUSTOMRECORD_CSEG_PR_TYPE", columns="id, name", order_by="id")
+    matched = match_item(all_accounts, target, "name", partial=True)
+    print("product type matched",matched)
+    if matched:
+        ids = [item["id"] for item in matched]  # 提取每个匹配项的 id
+        return ids
+    else:
+        return [None] * len(target)
+    
+def mapping_project_code(target):
+    print("mapping_project_code target",target)
+    all_accounts = fetch_all_items("CUSTOMRECORD_CSEG1", columns="id, name", order_by="id")
+    matched = match_item(all_accounts, target, "name", partial=True)
+    print("project code matched",matched)
+    if matched:
+        ids = [item["id"] for item in matched]  # 提取每个匹配项的 id
+        return ids
+    else:
+        return [None] * len(target)
+    
+def mapping_scheme(target):
+    print("mapping_project_code target",target)
+    all_accounts = fetch_all_items("CUSTOMRECORD_CSEG_SCHEME", columns="id, name", order_by="id")
+    matched = match_item(all_accounts, target, "name", partial=True)
+    print("scheme matched",matched)
+    if matched:
+        ids = [item["id"] for item in matched]  # 提取每个匹配项的 id
+        return ids
+    else:
+        return [None] * len(target)
+    
+def mapping_currency(target):
+    print("mapping_currency target",target)
+    all_accounts = fetch_all_items("currency", columns="id, name", order_by="id")
+    matched = match_item(all_accounts, target, "name", partial=False)
+    print("currency matched",matched)
+    if matched[0]:
+        ids = [item["id"] for item in matched]  # 提取每个匹配项的 id
+        return ids
+    else:
+        return [None] * len(target)
+    
 # 映射日期格式
 def mapping_date(date_str):
     date_obj = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
     formatted_date = date_obj.strftime("%d/%m/%Y")
     return formatted_date
 
-from datetime import datetime
+
 
 def mapping_postperiod(input_date):
     """
@@ -253,77 +334,13 @@ def mapping_postperiod(input_date):
         if formatted_date == value:
             return key
     return None
-
-def mapping_business(business_list):
-    mapped_list = []
-    for business_name in business_list:
-        value = business.get(str(business_name))
-        mapped_list.append(value)
-    return mapped_list
-
-
-def mapping_product_code(product_codes):
-    Key = []
-    for i in product_codes:
-        if i is None:
-            Key.append(None)
-            continue
-        found = False  
-        for key, value in product_code_dict.items():
-            if isinstance(value, str) and i in value:
-                Key.append(key)
-                found = True  
-                break  
-        if not found:
-            Key.append(None) 
-    return Key
     
 
-def mapping_product_type(product_types):
-    Key = []
-    for p_type in product_types:
-        found = False
-        if isinstance(p_type, (str, int, float)):
-            name = str(p_type).strip()
-            for internal_id, full_name in product_type_dict.items():
-                if isinstance(full_name, str) and full_name.endswith(name):
-                    Key.append(internal_id)
-                    found = True
-                    break
-        if not found:
-            Key.append(None)
-    return Key
-
-
-def mapping_project_code(project_codes):
-    Key = []
-    for code in project_codes:
-        found = False
-        if isinstance(code, (str, int, float)):
-            name = str(code).strip()
-            for internal_id, full_name in project_code_dict.items():
-                if full_name.endswith(name):
-                    Key.append(internal_id)
-                    found = True
-                    break
-        if not found:
-            Key.append(None)
-    return Key
 
 
 
-def mapping_scheme(scheme_list):
-    Key = []
-    for scheme in scheme_list:
-        found = False
-        if isinstance(scheme, (str, int, float)):
-            name = str(scheme).strip()
-            for internal_id,full_name in scheme_dict.items():
-                if full_name.endswith(name):
-                    Key.append(internal_id)
-                    found = True
-                    break
-        if not found:
-            Key.append(None)
-    return Key
+
+
+
+
 

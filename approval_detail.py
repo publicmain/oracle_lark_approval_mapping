@@ -20,7 +20,7 @@ def get_instance_details(instance):
     else:
         print(f"Request failed with status code {response.status_code}")
         return response.text
-# print(get_instance_details("3D7FDD6E-FCE4-4A62-8532-4B9E75FFD4B3").json())
+# print(get_instance_details("BF5EDFEA-EFD9-4C02-B4A3-79961C9B234F").json())
 
 # Handling the response
 

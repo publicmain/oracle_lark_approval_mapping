@@ -1,4 +1,5 @@
 import requests
+from requests_oauthlib import OAuth1
 app_id = "cli_a6b7352c1078502f"
 app_secret = "cU1Red6loKSXkZ1iNje2CcNKnSXLs5tL"
 def get_tenant_access_token():
@@ -19,3 +20,21 @@ def get_tenant_access_token():
             raise Exception(f"Error getting access token: {data['msg']}")
     else:
         raise Exception(f"HTTP request failed: {response.status_code}")
+    
+base_url = "https://6227405.suitetalk.api.netsuite.com/services/rest/query/v1/suiteql"
+oauth = OAuth1(
+        client_key='c562603650f92936a15174b910d95837bf7184922c717846b84521c8bcf16ccd',
+        client_secret='61945f0ac123e3bec725c8d30319926e612f32c2bbac96bfeb566826380e18c1',
+        resource_owner_key='aa01830becaddba8834618b250b190414d812c55167e3ae33351646920458804',
+        resource_owner_secret='85663e84d1f32c8bcab37b52a9c6c8ca6a60ab03600410448c0a960aacb1fe4b',
+        realm='6227405',
+        signature_method='HMAC-SHA256',
+        signature_type='auth_header'
+    )
+headers = {
+    "Content-Type": "application/json",
+    "Prefer": "transient"
+}
+query_payload = {
+    "q": "SELECT id, entityid, companyname FROM vendor ORDER BY id"
+}
