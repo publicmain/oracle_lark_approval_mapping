@@ -462,9 +462,12 @@ def mapping_currency(target):
     
 # 映射日期格式
 def mapping_date(date_str):
-    date_obj = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
-    formatted_date = date_obj.strftime("%d/%m/%Y")
-    return formatted_date
+    if date_str:
+        date_obj = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
+        formatted_date = date_obj.strftime("%d/%m/%Y")
+        return formatted_date
+    else:
+        return None
 
 
 

@@ -20,7 +20,7 @@ def get_instance_details(instance):
     else:
         print(f"Request failed with status code {response.status_code}")
         return response.text
-# print(get_instance_details("929A9C18-6382-4DD9-8EAE-14D24C15C80A").json())
+# print(get_instance_details("F0D8B55F-01DD-49E2-99BF-5269565C7F4B").json())
 
 # Handling the response
 
@@ -153,6 +153,7 @@ def extract_value(response,name):
         return None
     
 def extract_fromId(response):
+
     if isinstance(response, dict) and 'id' in response:
         id_value = response['id']
         
@@ -167,6 +168,8 @@ def extract_fromId(response):
         return None
     
 def get_details_list(name,details_list):
+    if details_list is None:
+        return []
     result = []
     for idx, detail in enumerate(details_list, 1):
         result.append(detail.get(name))
