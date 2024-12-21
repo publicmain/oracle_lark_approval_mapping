@@ -20,7 +20,7 @@ def get_instance_details(instance):
     else:
         print(f"Request failed with status code {response.status_code}")
         return response.text
-# print(get_instance_details("BF5EDFEA-EFD9-4C02-B4A3-79961C9B234F").json())
+# print(get_instance_details("929A9C18-6382-4DD9-8EAE-14D24C15C80A").json())
 
 # Handling the response
 
@@ -114,38 +114,56 @@ def print_details(details_list):
         print("-" * 40)
 
 def extract_value(response,name):
-    try:
-        data = response.json()
-        form = data.get('data', {}).get('form', [])
-        if isinstance(form, str):
-            try:
-                form = json.loads(form)
-            except json.JSONDecodeError as e:
-                print(f"解析 'form' 字段时出错: {e}")
+    if response:
+        try:
+            data = response.json()
+            form = data.get('data', {}).get('form', [])
+            if isinstance(form, str):
+                try:
+                    form = json.loads(form)
+                except json.JSONDecodeError as e:
+                    print(f"解析 'form' 字段时出错: {e}")
+                    return None
+            elif isinstance(form, list):
+                pass 
+            else:
+                print(f"未知的 'form' 字段类型: {type(form)}")
                 return None
-        elif isinstance(form, list):
-            pass 
-        else:
-            print(f"未知的 'form' 字段类型: {type(form)}")
+            for item in form:
+                if isinstance(item, dict) and item.get('name') == name:
+                    return item.get('value')
+            print("未找到"+str(name)+"字段。")
             return None
-        for item in form:
-            if isinstance(item, dict) and item.get('name') == name:
-                return item.get('value')
-        print("未找到"+str(name)+"字段。")
-        return None
-    except requests.exceptions.JSONDecodeError as e:
-        print(f"响应不是有效的 JSON: {e}")
-        return None
-    except Exception as e:
-        print(f"发生错误: {e}")
+        except requests.exceptions.JSONDecodeError as e:
+            print(f"响应不是有效的 JSON: {e}")
+            return None
+        except Exception as e:
+            print(f"发生错误: {e}")
+            return None
+        
+
+        except requests.exceptions.JSONDecodeError as e:
+            print(f"响应不是有效的 JSON: {e}")
+            return None
+        except Exception as e:
+            print(f"发生错误: {e}")
+            return None
+    else:
+        print("未找到 "+str(response)+"字段")
         return None
     
-
-    except requests.exceptions.JSONDecodeError as e:
-        print(f"响应不是有效的 JSON: {e}")
-        return None
-    except Exception as e:
-        print(f"发生错误: {e}")
+def extract_fromId(response):
+    if isinstance(response, dict) and 'id' in response:
+        id_value = response['id']
+        
+        # 确保 id 是非空字符串，并且包含 '+'
+        if isinstance(id_value, str) and '+' in id_value:
+            id_value = id_value.split('+')[0]
+            return id_value
+        else:
+            return None  # 如果 id 不是符合条件的字符串，设置为None
+    else:
+        print("response 不是有效的字典，或者没有 'id' 字段")
         return None
     
 def get_details_list(name,details_list):

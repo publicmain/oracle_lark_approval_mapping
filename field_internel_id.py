@@ -67,6 +67,31 @@ postperiod = {
     '330': 'Adjust 2025 (12/31 - 12/31)',
     '366': 'FY 2026'
 }
+
+GST_dict = {
+    "TX-N33-SG": {"Internal ID": 19, "Rate": "7.00%"},
+    "TX-E33-SG": {"Internal ID": 18, "Rate": "7.00%"},
+    "SRRC-SG": {"Internal ID": 26, "Rate": "0.00%"},
+    "SROVR-SG": {"Internal ID": 27, "Rate": "7.00%"},
+    "SG-Out of Scope Supplies": {"Internal ID": 11, "Rate": "0.00%"},
+    "SG-GST Purchase Out of Scope": {"Internal ID": 14, "Rate": "0.00%"},
+    "SG-GST Exempt Supplies R33": {"Internal ID": 8, "Rate": "0.00%"},
+    "SG-GST 9% Std Rate": {"Internal ID": 485, "Rate": "9.00%"},
+    "SG-GST 9% Purchase": {"Internal ID": 486, "Rate": "9.00%"},
+    "SG-GST 8% Std Rate": {"Internal ID": 433, "Rate": "8.00%"},
+    "SG-GST 8% Purchase": {"Internal ID": 434, "Rate": "8.00%"},
+    "SG-GST 7% Std Rate": {"Internal ID": 6, "Rate": "7.00%"},
+    "SG-GST 7% Purchase": {"Internal ID": 17, "Rate": "7.00%"},
+    "SG-GST 0% ZR Supplies": {"Internal ID": 7, "Rate": "0.00%"},
+    "SG-GST 0% ZR Purchase": {"Internal ID": 21, "Rate": "0.00%"},
+    "NR-SG": {"Internal ID": 12, "Rate": "0.00%"},
+    "Not Applicable": {"Internal ID": 198, "Rate": "0.00%"},
+    "GST 9% N/Claimable": {"Internal ID": 484, "Rate": "9.00%"},
+    "GST 8% N/Claimable": {"Internal ID": 460, "Rate": "8.00%"},
+    "GST 7% N/Claimable": {"Internal ID": 22, "Rate": "7.00%"},
+    "ESN33-SG": {"Internal ID": 9, "Rate": "0.00%"},
+    "CN-VAT 1%": {"Internal ID": 490, "Rate": "1.00%"}
+}
 # currency_dict = {
 #     1: "SGD",
 #     2: "USD",
@@ -182,6 +207,7 @@ def match_item_exact(items, target, key):
     
 def mapping_entity_subsidiary(target):
     #print("mapping_entity_subsidiary target",target)
+    target = re.sub(r'\s*\(fka[^)]*\)', '', target)
     all_subsidiaries = fetch_all_items("subsidiary", columns="id, name")
     matched = match_item(all_subsidiaries, target, "name", partial=True)
     #print("subsidiary matched",matched)
@@ -193,15 +219,18 @@ def mapping_entity_subsidiary(target):
 
 def mapping_Vendor(target):
 
-    print("mapping_Vendor target",target)
-    all_vendors = fetch_all_items_paged("vendor", columns="id, entityid")
-    matched = match_item_exact(all_vendors, target, "entityid")
-    #print("Vendor matched",matched)
-    if matched:
-        if isinstance(matched, dict):
-            return matched["id"]
+    #print("mapping_Vendor target",target)
+    if target:
+        all_vendors = fetch_all_items_paged("vendor", columns="id, entityid")
+        matched = match_item_exact(all_vendors, target, "entityid")
+        #print("Vendor matched",matched)
+        if matched:
+            if isinstance(matched, dict):
+                return matched["id"]
+            else:
+                return [item["id"] for item in matched if item]
         else:
-            return [item["id"] for item in matched if item]
+            return None
     else:
         return None
 
@@ -210,24 +239,52 @@ def mapping_Location(target):
     all_locations = fetch_all_items("location", columns="id, name", order_by="id")
     matched = match_item(all_locations, target, "name", partial=False)
     #print("location matched",matched)
-    if matched:
-        return matched["id"]
+    if isinstance(target, list):
+        if matched and any(matched):
+            ids = [item["id"] if item else None for item in matched]
+            return ids
+        else:
+            return [None] * len(target)
     else:
-        print(f"Location with name='{target}' not found.")
-        return None
-
-def mapping_GL_Account(target):
-    print("mapping_GL_Account target", target)
-    all_accounts = fetch_all_items("account", columns="id, accountsearchdisplayname", order_by="id")
-    matched = match_item_exact(all_accounts, target, "accountsearchdisplayname")
-    print("GL Account matched", matched)
-    if matched:
-        if isinstance(matched, dict):
+        if matched:
             return matched["id"]
         else:
-            return [item["id"] for item in matched if item]
-    else:
-        return None
+            return None
+
+def mapping_GL_Account(target):
+    #print("mapping_GL_Account target", target)
+
+    # 记录原始列表的长度
+    length = len(target)
+
+    # 分离非 None 的条目及其索引
+    non_none_items = []
+    non_none_indices = []
+    for i, t in enumerate(target):
+        if t is not None:
+            non_none_items.append(t)
+            non_none_indices.append(i)
+
+    all_accounts = fetch_all_items("account", columns="id, accountsearchdisplayname", order_by="id")
+
+    # 针对非 None 的内容进行匹配
+    matched_non_none = match_item_exact(all_accounts, non_none_items, "accountsearchdisplayname")
+    # matched_non_none 与 non_none_items 等长，每个元素要么是匹配的 dict，要么是 None
+
+    # 准备结果列表，与输入 target 一样长
+    result = [None] * length
+
+    # 将匹配结果回填到相应位置
+    for idx, val in zip(non_none_indices, matched_non_none):
+        if val is not None:
+            # val 是一个字典
+            result[idx] = val["id"]
+        else:
+            # 未匹配到，保持 None
+            result[idx] = None
+
+    #print("GL Account matched result:", result)
+    return result
 
 def mapping_division(target):
     #print("division target",target)
@@ -241,71 +298,167 @@ def mapping_division(target):
         return [None] * len(target)
     
 def mapping_business(target):
-    print("mapping_business target",target)
+    cleaned_list = []
+
+    for item in target:
+        if item is None:
+            # Retain None if the element is None
+            cleaned_list.append(None)
+        elif isinstance(item, str):
+            # Find the first occurrence of ':' and extract the part after it
+            parts = item.split(":", 1)
+            
+            if len(parts) > 1:
+                # Strip any leading or trailing whitespace from the part after the colon
+                cleaned_list.append(parts[1].strip())
+            else:
+                # If there is no colon, return the original string
+                cleaned_list.append(item.strip())
+        else:
+            # If the item is not a string or None, append None
+            cleaned_list.append(None)
+    #print("mapping_business target",target)
     all_accounts = fetch_all_items("CUSTOMRECORD_CSEG_BUSINESS", columns="id, name", order_by="id")
-    matched = match_item(all_accounts, target, "name", partial=False)
-    print("business matched",matched)
-    if matched:
-        ids = [item["id"] for item in matched]  # 提取每个匹配项的 id
-        return ids
+    matched = match_item(all_accounts, cleaned_list, "name", partial=False)
+    #print("business matched",matched)
+    if isinstance(target, list):
+        if matched and any(matched):
+            ids = [item["id"] for item in matched if item]
+            return ids
+        else:
+            return [None] * len(target)
     else:
-        return [None] * len(target)
+        if matched:
+            return matched["id"]
+        else:
+            return None
     
 def mapping_product_code(target):
-    print("mapping_product_code target",target)
+    #print("mapping_product_code target",target)
     all_accounts = fetch_all_items("classification", columns="id, name", order_by="id")
     matched = match_item(all_accounts, target, "name", partial=True)
-    print("product code matched",matched)
-    if matched:
-        ids = [item["id"] for item in matched]  # 提取每个匹配项的 id
-        return ids
+    #print("product code matched",matched)
+    if isinstance(target, list):
+        if matched and any(matched):
+            ids = [item["id"] if item else None for item in matched]
+            return ids
+        else:
+            return [None] * len(target)
     else:
-        return [None] * len(target)
+        if matched:
+            return matched["id"]
+        else:
+            return None
         
 
 def mapping_product_type(target):
-    print("mapping_product_type target",target)
+    #print("mapping_product_type target",target)
+    cleaned_list = []
+
+    for item in target:
+        if item is None:
+            # Retain None if the element is None
+            cleaned_list.append(None)
+        elif isinstance(item, str):
+            # Find the first occurrence of ':' and extract the part after it
+            parts = item.split(":", 1)
+            
+            if len(parts) > 1:
+                # Strip any leading or trailing whitespace from the part after the colon
+                cleaned_list.append(parts[1].strip())
+            else:
+                # If there is no colon, return the original string
+                cleaned_list.append(item.strip())
+        else:
+            # If the item is not a string or None, append None
+            cleaned_list.append(None)
     all_accounts = fetch_all_items("CUSTOMRECORD_CSEG_PR_TYPE", columns="id, name", order_by="id")
-    matched = match_item(all_accounts, target, "name", partial=True)
-    print("product type matched",matched)
-    if matched:
-        ids = [item["id"] for item in matched]  # 提取每个匹配项的 id
-        return ids
+    matched = match_item(all_accounts, cleaned_list, "name", partial=True)
+    #print("product type matched",matched)
+    if isinstance(target, list):
+        if matched and any(matched):
+            ids = [item["id"] if item else None for item in matched]
+            return ids
+        else:
+            return [None] * len(target)
     else:
-        return [None] * len(target)
+        if matched:
+            return matched["id"]
+        else:
+            return None
     
 def mapping_project_code(target):
-    print("mapping_project_code target",target)
+    #print("mapping_project_code target",target)
     all_accounts = fetch_all_items("CUSTOMRECORD_CSEG1", columns="id, name", order_by="id")
     matched = match_item(all_accounts, target, "name", partial=True)
-    print("project code matched",matched)
-    if matched:
-        ids = [item["id"] for item in matched]  # 提取每个匹配项的 id
-        return ids
+    #print("project code matched",matched)
+    if isinstance(target, list):
+        if matched and any(matched):
+            ids = [item["id"] if item else None for item in matched]
+            return ids
+        else:
+            return [None] * len(target)
     else:
-        return [None] * len(target)
+        if matched:
+            return matched["id"]
+        else:
+            return None
     
 def mapping_scheme(target):
-    print("mapping_project_code target",target)
+    #print("mapping_scheme target", target)
+    cleaned_list = []
+
+    for index, item in enumerate(target):
+        if item is None:
+            # Retain None if the element is None
+            cleaned_list.append(None)
+        elif isinstance(item, str):
+            # Split the string by ':' and strip whitespace from each part
+            parts = [part.strip() for part in item.split(':')]
+
+            if parts:
+                # Extract the last part as the desired scheme name
+                scheme_name = parts[-1]
+                cleaned_list.append(scheme_name)
+            else:
+                # If splitting results in an empty list, append an empty string
+                cleaned_list.append("")
+        else:
+            # If the item is neither None nor a string, append None
+            cleaned_list.append(None)
+
     all_accounts = fetch_all_items("CUSTOMRECORD_CSEG_SCHEME", columns="id, name", order_by="id")
-    matched = match_item(all_accounts, target, "name", partial=True)
-    print("scheme matched",matched)
-    if matched:
-        ids = [item["id"] for item in matched]  # 提取每个匹配项的 id
-        return ids
+    matched = match_item(all_accounts, cleaned_list, "name", partial=True)
+    #print("scheme matched", matched)
+    
+    if isinstance(target, list):
+        if matched and any(matched):
+            ids = [item["id"] if item else None for item in matched]
+            return ids
+        else:
+            return [None] * len(target)
     else:
-        return [None] * len(target)
+        if matched:
+            return matched["id"]
+        else:
+            return None
     
 def mapping_currency(target):
     print("mapping_currency target",target)
     all_accounts = fetch_all_items("currency", columns="id, name", order_by="id")
     matched = match_item(all_accounts, target, "name", partial=False)
     print("currency matched",matched)
-    if matched[0]:
-        ids = [item["id"] for item in matched]  # 提取每个匹配项的 id
-        return ids
+    if isinstance(target, list):
+        if matched and any(matched):
+            ids = [item["id"] if item else None for item in matched]
+            return ids
+        else:
+            return [None] * len(target)
     else:
-        return [None] * len(target)
+        if matched:
+            return matched["id"]
+        else:
+            return None
     
 # 映射日期格式
 def mapping_date(date_str):
@@ -334,13 +487,196 @@ def mapping_postperiod(input_date):
         if formatted_date == value:
             return key
     return None
+
+def mapping_taxcode(target):
+    """
+    根据给定的 Name 列表，返回对应的 Internal ID 列表和 Rate 列表。
+
+    参数:
+        names_list (list): 包含多个 Name 的列表。
+
+    返回:
+        tuple: (ids_list, rates_list)
+            - ids_list (list): 对应的 Internal ID 列表。
+            - rates_list (list): 对应的 Rate 列表。
+    """
+    ids_list = []
+    rates_list = []
     
+    for name in target:
+        info = GST_dict.get(name)
+        if info:
+            ids_list.append(info["Internal ID"])
+            rates_list.append(info["Rate"])
+        else:
+            ids_list.append(None)  
+            rates_list.append(None)
+    
+    return ids_list, rates_list
+
+def mapping_item(target):
+    result = []
+    
+    for item in target:
+        if item is None:
+            result.append(None) 
+        else:
+            first_word = item.split()[0] if item.strip() else ""
+            result.append(first_word)
+    
+    return result
+
+def mapping_giro_paid(target):
+    """
+    根据输入的字符串，返回对应的 Internal ID。
+
+    参数:
+        target (str): 输入的字符串。
+
+    返回:
+        int: 对应的 Internal ID。
+    """
+    if target:
+        if target == "Yes":
+            return 1
+        else:
+            return 2
+    else:
+        print(f"Giro Paid with name containing '{target}' not found.")
+        return None
+    
+# def mapping_item(target):
+#     """
+#     实现对item的匹配逻辑：
+#     1. 获取所有items (id, itemid)
+#     2. 对于每个target(可以是单字符串或列表):
+#        - 拆分单词，从第一个词开始匹配，如果找不到就加下一个词，一直加到整句。
+#        - 匹配时都做normalize处理，并在获取的items中查询清洗后的名称是否存在。
+#        - 找到匹配则返回对应的id；若没找到返回None。
+       
+#     返回值： 
+#     - 若 target 是字符串：返回找到的 item 的 id 或 None
+#     - 若 target 是列表：返回与列表中每个元素对应的 id 或 None 的列表
+#     """
+#     def fetch_and_build_item_dict():
+#         all_items = fetch_all_items_paged("item", columns="id, itemid")
+#         item_dict = {}
+#         for itm in all_items:
+#             # normalize itemid
+#             normalized = normalize_string(itm["itemid"])
+#             item_dict[normalized] = itm
+#         return item_dict
+
+#     item_dict = fetch_and_build_item_dict()
+
+#     def match_single_item(t):
+#         if not t:
+#             return None
+#         words = t.split()
+#         for i in range(1, len(words) + 1):
+#             candidate_str = " ".join(words[:i])
+#             cleaned_candidate = normalize_string(candidate_str)
+#             if cleaned_candidate in item_dict:
+#                 return item_dict[cleaned_candidate]["id"]
+#         return None
+
+#     if isinstance(target, list):
+#         # 使用条件表达式，确保每个元素都有对应的输出
+#         return [match_single_item(t) if t else None for t in target]
+#     else:
+#         return match_single_item(target)
+# if __name__ == "__main__":
+#     # 要测试的所有Lark items
+#     lark_items = [
+#         "IAPAS001 AIRLINE PILOT ASSOC OF SPORE",
+#         "IIE001 THE INST OF ELECTRICAL ENGR SPORE CTR",
+#         "IIEEE001 INST OF ELECTRICAL&ELECTRONIC ENGR",
+#         "IIES001 THE INSTITUTION OF ENGINEERS SPORE",
+#         "IIFPAS001 INS & FIN PRAC ASSOC OF SPORE",
+#         "INAA001 NGEE ANN ALUMNI",
+#         "ISEEU001 SPORE ENGRG CO ENGR & EXEC UNION",
+#         "ISHRI001 SPORE HUMAN RESOURCE INSTITUTE",
+#         "ISIASU001 SPORE AIRLINES STAFF UNION",
+#         "ISMOU001 SPORE MARITIME OFFICERS UNION",
+#         "DCS D-Lite Corporate Card MC2604 DCS D-Lite Corporate Card MC2604",
+#         "DCS Flex Visa Platinum Card Basic VC2006 DCS Flex Visa Platinum Card Basic VC2006",
+#         "DCS Flex Visa Platinum Card Limited Ed VC2007 DCS Flex Visa Platinum Card Limited Ed VC2007",
+#         "DCS imToken Cobrand Card MV3505 DCS imToken Cobrand Card MV3505",
+#         "DCS UPI D-Lite UV3502 DCS UPI D-Lite UV3502",
+#         "DCS UPI Ultimate Platinum UC2004 DCS UPI Ultimate Platinum UC2004",
+#         "Full Metal Dual Interface Card MC2008 Full Metal Dual Interface Card MC2008",
+#         "IACE001 ACE CREDIT CARD",
+#         "ICBK001 CASHBACK CARD",
+#         "ICOU001 COURTS REBATE CARD",
+#         "ICRE001 CREDIT CARD",
+#         "ICRIN001 NATURE'S FARM COBRAND CARD",
+#         "IDCT001 DELIVERY CHINATOWN COBRAND CARD",
+#         "IDON001 DON DON DONKI COBRAND CARD",
+#         "IHYD001 HYDEFI COBRAND CARD",
+#         "IJP001 JP PEPPERDINE COBRAND CARD",
+#         "ILB001 LONG BEACH COBRAND CARD",
+#         "IMC D-Lite 3503 PCC017-MC D-Lite 3503",
+#         "IMC Ultimate Platinum PCC015-MC Ultimate Platinum MC2005",
+#         "Imperium World Elite MC2008 Imperium World Elite MC2008",
+#         "IMUS001 MUSTAFA COBRAND CARD",
+#         "INSK001 NUSKIN COBRAND CARD",
+#         "IPC001 CHARGE PHOTOCARD",
+#         "IPCRE001 CREDIT PHOTOCARD",
+#         "IPOP001 POPULAR COBRAND CARD",
+#         "IRML001 RAFFLES MARINA COBRAND CARD",
+#         "IS001 CHARGE CARD",
+#         "ISS001 SHENG SIONG COBRAND CARD",
+#         "IVIC001 VICOM COBRAND CARD",
+#         "MC COURTS - MC2112 DCS Courts Cobrand Card (MasterCard)",
+#         "MC Platinum Dragon - MV3510 MC Platinum Dragon (Doo Cobrand Card)",
+#         "UPI Platinum Dragon - UV3509 UPI Platinum Dragon (Doo Cobrand Card)",
+#         "D Visa Platinum (VUSD/VDLT)",
+#         "XIAOMI SMART BAND 8 ACTIVE",
+#         "CATERPILLAR 24\" luggage",
+#         "MC DECARD MV3788 LUMINARIES",
+#         "MC DECARD MV3788 PINK",
+#         "MC DECARD MV3788 BLUE",
+#         "MC DECARD MV3788 GREEN"
+#     ]
+
+    # # 测试匹配
+    # success_count = 0
+    # fail_count = 0
+    # total = len(lark_items)
+
+    # print("------------------------------------------------------------")
+    # print(f"[TEST START] 开始测试 {total} 个Lark items")
+    # print("------------------------------------------------------------")
+
+    # for l_item in lark_items:
+    #     found_id = mapping_item(l_item)
+    #     if found_id:
+    #         print(f"[SUCCESS] Lark item: '{l_item}' => Oracle item ID: {found_id}")
+    #         success_count += 1
+    #     else:
+    #         print(f"[FAIL] Lark item: '{l_item}' => 未找到匹配条目")
+    #         fail_count += 1
+
+    # print("------------------------------------------------------------")
+    # print(f"[SUMMARY] 共测试 {total} 个Lark items")
+    # print(f"[SUMMARY] 匹配成功：{success_count} 个")
+    # print(f"[SUMMARY] 匹配失败：{fail_count} 个")
+    # print("------------------------------------------------------------")
 
 
 
 
-
-
-
-
-
+# if __name__ == "__main__":
+#     # 输入的 Name 列表
+#     input_names = [
+#         "SG-GST 9% Std Rate",
+#         "TX-E33-SG",
+#         "NR-SG",
+#         "SG-GST 8% Purchase"  # 示例中不存在的 Name
+#     ]
+    
+#     # 获取对应的 Internal ID 和 Rate 列表
+#     internal_ids, rates = mapping_taxcode(input_names)
+    
+#     print("Internal IDs:", internal_ids)
+#     print("Rates:", rates)
