@@ -1,5 +1,6 @@
 import requests
 import json
+import os
 from config import get_tenant_access_token
 # Base URL and endpoint
 def get_instance_details(instance):
@@ -20,7 +21,7 @@ def get_instance_details(instance):
     else:
         print(f"Request failed with status code {response.status_code}")
         return response.text
-# print(get_instance_details("F0D8B55F-01DD-49E2-99BF-5269565C7F4B").json())
+# print(get_instance_details("8F292381-5054-4F17-9424-C9D4CFFA596D").json())
 
 # Handling the response
 
@@ -113,6 +114,60 @@ def print_details(details_list):
             print(f"{key}: {value}")
         print("-" * 40)
 
+def extract_attachment_ext_names(response):
+    """
+    提取 JSON 中 'Attachments' 字段的 'ext' 值，按逗号分割并去除文件后缀，返回文件名列表。
+    
+    参数:
+        response (requests.Response): 包含 JSON 数据的响应对象。
+    
+    返回:
+        list 或 None: 文件名列表或在出错时返回 None。
+    """
+    if response:
+        try:
+            data = response.json()
+            form = data.get('data', {}).get('form', [])
+            
+            # 处理 'form' 字段可能是字符串或列表的情况
+            if isinstance(form, str):
+                try:
+                    form = json.loads(form)
+                except json.JSONDecodeError as e:
+                    print(f"解析 'form' 字段时出错: {e}")
+                    return None
+            elif not isinstance(form, list):
+                print(f"未知的 'form' 字段类型: {type(form)}")
+                return None
+
+            # 遍历 'form' 寻找 'Attachments' 字段
+            for item in form:
+                if isinstance(item, dict) and item.get('name') == 'Attachments':
+                    ext_str = item.get('ext')
+                    if not ext_str:
+                        print("未找到 'ext' 字段或其值为空。")
+                        return None
+                    
+                    # 按逗号分割
+                    ext_list = ext_str.split(',')
+                    
+                    # 去除后缀，只保留文件名
+                    names = [os.path.splitext(name)[0] for name in ext_list]
+                    return names
+            
+            print("未找到 'Attachments' 字段。")
+            return None
+        
+        except json.JSONDecodeError as e:
+            print(f"响应不是有效的 JSON: {e}")
+            return None
+        except Exception as e:
+            print(f"发生错误: {e}")
+            return None
+    else:
+        print("响应为空。")
+        return None
+    
 def extract_value(response,name):
     if response:
         try:

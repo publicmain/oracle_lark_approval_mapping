@@ -19,15 +19,10 @@ instance_ids = get_approval_instance_ids(
 )
 # print("instance_ids:", instance_ids)
 for instance_id in instance_ids:
-    # if instance_id == "C5FCC9FE-55DB-4145-945D-F30B94660821":
+    if instance_id == "500A0B09-E31D-4CA9-8D98-66EB5306D9B2":
         instance_response = get_instance_details(instance_id)
-        print(instance_response)
         print(instance_id)
         request_body = generate_request_body(instance_response, "po")
-        # if request_body_and_fromId is None:
-        #     continue  # 或者执行其他逻辑处理
-        # else:
-        #     request_body, fromId = request_body_and_fromId
         if request_body is None:
             continue
         response = create_vendor_bill_in_netsuite(request_body)

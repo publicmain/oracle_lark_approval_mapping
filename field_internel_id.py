@@ -1,5 +1,5 @@
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 import requests
 from config import base_url,oauth,headers
@@ -287,9 +287,9 @@ def mapping_GL_Account(target):
     return result
 
 def mapping_division(target):
-    #print("division target",target)
+    # print("division target",target)
     all_divisions = fetch_all_items("department", columns="id, name")
-    matched = match_item(all_divisions, target, "name", partial=True)
+    matched = match_item_exact(all_divisions, target, "name")
     #print("division matched",matched)
     if matched[0]:
         ids = [item["id"] for item in matched]  # 提取每个匹配项的 id
@@ -444,10 +444,10 @@ def mapping_scheme(target):
             return None
     
 def mapping_currency(target):
-    print("mapping_currency target",target)
+    # print("mapping_currency target",target)
     all_accounts = fetch_all_items("currency", columns="id, name", order_by="id")
     matched = match_item(all_accounts, target, "name", partial=False)
-    print("currency matched",matched)
+    # print("currency matched",matched)
     if isinstance(target, list):
         if matched and any(matched):
             ids = [item["id"] if item else None for item in matched]
@@ -464,6 +464,7 @@ def mapping_currency(target):
 def mapping_date(date_str):
     if date_str:
         date_obj = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
+        date_obj_plus_one = date_obj + timedelta(days=1)
         formatted_date = date_obj.strftime("%d/%m/%Y")
         return formatted_date
     else:

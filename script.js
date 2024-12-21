@@ -139,6 +139,23 @@ define(['N/record', 'N/format', 'N/file', 'N/encode'], function (record, format,
 
 
         }
+        // var tranid = requestBody.tranid;
+        // var tranidSearch = search.create({
+        //     type: record.Type.PURCHASE_ORDER,
+        //     filters: [
+        //         ['tranid', 'is', tranid]
+        //     ],
+        //     columns: ['internalid']
+        // });
+
+        // var searchResult = tranidSearch.run().getRange({ start: 0, end: 1 });
+        // if (searchResult.length > 0) {
+        //     // 如果找到重复的tranid，返回错误信息
+        //     return JSON.stringify({
+        //         success: false,
+        //         message: 'Duplicate tranid detected. The tranid already exists.'
+        //     });
+        // }
         if (requestBody.posttype == 'po') {
             var objRecord = record.create({
                 type: record.Type.PURCHASE_ORDER,
@@ -331,26 +348,56 @@ define(['N/record', 'N/format', 'N/file', 'N/encode'], function (record, format,
                         //'SG-GST 9% Purchase'//486
                     })
 
-                    objRecord.setCurrentSublistValue({
+                   /*  objRecord.setCurrentSublistValue({
                         sublistId: 'expense',
                         fieldId: 'taxrate',
                         value: sublistitem.taxrate
                         //'9%'
-                    })
+                    }) */
 
                     objRecord.setCurrentSublistValue({
                         sublistId: 'expense',
-                        fieldId: 'taxamount',
+                        fieldId: 'tax1amt',
                         value: sublistitem.taxamount
                         //0.09
                     })
-
                     objRecord.setCurrentSublistValue({
                         sublistId: 'expense',
-                        fieldId: 'grossamount',
+                        fieldId: 'cseg_business',
+                        value: sublistitem.cseg_business
+                        //'9%'
+                    })
+                    objRecord.setCurrentSublistValue({
+                        sublistId: 'expense',
+                        fieldId: 'cseg_scheme',
+                        value: sublistitem.cseg_scheme
+                        //'9%'
+                    })
+                    objRecord.setCurrentSublistValue({
+                        sublistId: 'expense',
+                        fieldId: 'cseg_pr_type',
+                        value: sublistitem.cseg_pr_type
+                        //'9%'
+                    })
+                    objRecord.setCurrentSublistValue({
+                        sublistId: 'expense',
+                        fieldId: 'class',
+                        value: sublistitem.class
+                        //'9%'
+                    })
+                    objRecord.setCurrentSublistValue({
+                        sublistId: 'expense',
+                        fieldId: 'cseg1',
+                        value: sublistitem.cseg1
+                        //'9%'
+                    })
+
+                   /*   objRecord.setCurrentSublistValue({
+                        sublistId: 'expense',
+                        fieldId: 'grossamt',
                         value: sublistitem.grossamount
                         //1.09
-                    })
+                    })  */
                     objRecord.commitLine({
                         sublistId: 'expense'
                     });
@@ -416,26 +463,59 @@ define(['N/record', 'N/format', 'N/file', 'N/encode'], function (record, format,
                         //486
                     })
 
+                  
+                    
+/* 
                     objRecord.setCurrentSublistValue({
                         sublistId: 'item',
                         fieldId: 'taxrate',
                         value: sublistitem.taxrate
                         //'9%'
-                    })
+                    }) */
 
                     objRecord.setCurrentSublistValue({
                         sublistId: 'item',
-                        fieldId: 'taxamount',
+                        fieldId: 'tax1amt',
                         value: sublistitem.taxamount
                         //0
                     })
-
                     objRecord.setCurrentSublistValue({
                         sublistId: 'item',
-                        fieldId: 'grossamount',
+                        fieldId: 'cseg_business',
+                        value: sublistitem.cseg_business
+                        //'9%'
+                    })
+                    objRecord.setCurrentSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'cseg_scheme',
+                        value: sublistitem.cseg_scheme
+                        //'9%'
+                    })
+                    objRecord.setCurrentSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'cseg_pr_type',
+                        value: sublistitem.cseg_pr_type
+                        //'9%'
+                    })
+                    objRecord.setCurrentSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'class',
+                        value: sublistitem.class
+                        //'9%'
+                    })
+                    objRecord.setCurrentSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'cseg1',
+                        value: sublistitem.cseg1
+                        //'9%'
+                    })
+
+                   /*  objRecord.setCurrentSublistValue({
+                        sublistId: 'item',
+                        fieldId: 'grossamt',
                         value: sublistitem.grossamount
                         //0
-                    })
+                    }) */
 
 
                     objRecord.commitLine({
@@ -500,63 +580,178 @@ define(['N/record', 'N/format', 'N/file', 'N/encode'], function (record, format,
         var fileObj
         var fileId
         requestBody.attachment.forEach(function (attachmentitem) {
-            //pdf等应该属于这一类
-            if (attachmentitem.type == 'png') {
-                fileObj = file.create({
-                    name: attachmentitem.title,
-                    fileType: file.Type.PNGIMAGE,
-                    contents: attachmentitem.encodeData,//decodeddata
-                    //You attempted to write non-binary data into a binary file 'testpic.png' of type 'PNGIMAGE'. Binary data must be encoded as base64 strings. 
-                });
-
-                fileObj.folder = 13363;//document - file - suitescript
-                fileObj.name = attachmentitem.title,
-                fileId = fileObj.save();
-                log.audit("fileId", fileId);
-                if (requestBody.posttype == 'bill' || requestBody.posttype == 'polinkedbill') {
-                    record.attach({ record: { type: 'file', id: fileId }, to: { type: record.Type.VENDOR_BILL, id: recordId } });  //later use return id
-                }
-                if (requestBody.posttype == 'po') {
-                    record.attach({ record: { type: 'file', id: fileId }, to: { type: record.Type.PURCHASE_ORDER, id: recordId } });  //later use return id
-                }
-            }
-            if (attachmentitem.type == 'txt') {
-                // var base64data = JSON.stringify(requestBody.attachment); 
-                // FAILED_TO_DECODE_STRING_ENCODED_BINARY_DATA_USING_1_ENCODING
-                //"attachment":"IlTDg8aSw4LCqXN0IFN0cmnDg8aSw4LCsWcgSW5wdXQi",
-                //"SGVsbG8gSmlheXU="
-                function convertStringToDifferentEncoding() {
+            var fileExtension = attachmentitem.type.toLowerCase().replace(/^\./, '');
+            switch (fileExtension) {
+                case 'png':
+                    fileObj = file.create({
+                        name: attachmentitem.title,
+                        fileType: file.Type.PNGIMAGE,
+                        contents: attachmentitem.encodeData, // Base64 编码的 PNG 数据
+                    });
+                    break;
+                
+                case 'pdf':
+                    fileObj = file.create({
+                        name: attachmentitem.title,
+                        fileType: file.Type.PDF,
+                        contents: attachmentitem.encodeData, // Base64 编码的 PDF 数据
+                    });
+                    break;
+                
+                case 'jpg':
+                case 'jpeg':
+                    fileObj = file.create({
+                        name: attachmentitem.title,
+                        fileType: file.Type.JPGIMAGE,
+                        contents: attachmentitem.encodeData, // Base64 编码的 JPG 数据
+                    });
+                    break;
+                
+                case 'gif':
+                    fileObj = file.create({
+                        name: attachmentitem.title,
+                        fileType: file.Type.GIFIMAGE,
+                        contents: attachmentitem.encodeData, // Base64 编码的 GIF 数据
+                    });
+                    break;
+                
+                case 'tiff':
+                case 'tif':
+                    fileObj = file.create({
+                        name: attachmentitem.title,
+                        fileType: file.Type.TIFFIMAGE,
+                        contents: attachmentitem.encodeData, // Base64 编码的 TIFF 数据
+                    });
+                    break;
+                
+                case 'bmp':
+                    fileObj = file.create({
+                        name: attachmentitem.title,
+                        fileType: file.Type.BMPIMAGE,
+                        contents: attachmentitem.encodeData, // Base64 编码的 BMP 数据
+                    });
+                    break;
+                
+                case 'doc':
+                case 'docx':
+                    fileObj = file.create({
+                        name: attachmentitem.title,
+                        fileType: file.Type.WORD,
+                        contents: attachmentitem.encodeData, // Base64 编码的 Word 文档
+                    });
+                    break;
+                
+                case 'xls':
+                case 'xlsx':
+                    fileObj = file.create({
+                        name: attachmentitem.title,
+                        fileType: file.Type.EXCEL,
+                        contents: attachmentitem.encodeData, // Base64 编码的 Excel 文档
+                    });
+                    break;
+                
+                case 'csv':
+                    fileObj = file.create({
+                        name: attachmentitem.title,
+                        fileType: file.Type.CSV,
+                        contents: attachmentitem.encodeData, // Base64 编码的 CSV 文件
+                    });
+                    break;
+                
+                case 'html':
+                case 'htm':
+                    fileObj = file.create({
+                        name: attachmentitem.title,
+                        fileType: file.Type.HTMLDOC,
+                        contents: attachmentitem.encodeData, // Base64 编码的 HTML 文件
+                    });
+                    break;
+                
+                case 'txt':
+                    // 对于纯文本文件，需要进行解码处理
                     decodeddata = encode.convert({
                         string: attachmentitem.encodeData,
                         inputEncoding: encode.Encoding.BASE_64,
                         outputEncoding: encode.Encoding.UTF_8
                     });
-                }
-                convertStringToDifferentEncoding();
-                //call function
-
-
-
-                fileObj = file.create({
-                    name: attachmentitem.title,
-                    fileType: file.Type.PLAINTEXT,
-                    contents: decodeddata
-                });
-
-                fileObj.folder = 13363;//document - file - suitescript
-                fileObj.name =  attachmentitem.title,
+                    fileObj = file.create({
+                        name: attachmentitem.title,
+                        fileType: file.Type.PLAINTEXT,
+                        contents: decodeddata // 解码后的文本内容
+                    });
+                    break;
+                
+                case 'svg':
+                    fileObj = file.create({
+                        name: attachmentitem.title,
+                        fileType: file.Type.SVG,
+                        contents: attachmentitem.encodeData, // Base64 编码的 SVG 文件
+                    });
+                    break;
+                
+                case 'zip':
+                    fileObj = file.create({
+                        name: attachmentitem.title,
+                        fileType: file.Type.ZIP,
+                        contents: attachmentitem.encodeData, // Base64 编码的 ZIP 文件
+                    });
+                    break;
+                
+                case 'rtf':
+                    fileObj = file.create({
+                        name: attachmentitem.title,
+                        fileType: file.Type.RTF,
+                        contents: attachmentitem.encodeData, // Base64 编码的 RTF 文件
+                    });
+                    break;
+                
+                // 您可以根据需要继续添加更多的文件类型
+                
+                default:
+                    log.error({
+                        title: 'Unsupported File Type',
+                        details: 'The file type "' + attachmentitem.type + '" is not supported.'
+                    });
+                    return; // 跳过不支持的文件类型
+            }
+        
+            // 设置文件夹
+            fileObj.folder = 13363; // document - file - suitescript
+        
+            // 保存文件
+            try {
                 fileId = fileObj.save();
                 log.audit("fileId", fileId);
-                if (requestBody.posttype == 'bill' || requestBody.posttype == 'polinkedbill') {
-                    record.attach({ record: { type: 'file', id: fileId }, to: { type: record.Type.VENDOR_BILL, id: recordId } });  //later use return id
-                }
-                if (requestBody.posttype == 'po') {
-                    record.attach({ record: { type: 'file', id: fileId }, to: { type: record.Type.PURCHASE_ORDER, id: recordId } });  //later use return id
-                }
+            } catch (e) {
+                log.error({
+                    title: 'File Save Error',
+                    details: e.message
+                });
+                return; // 跳过保存失败的文件
             }
-
-
-        })
+        
+            // 附加文件到相应的记录
+            try {
+                if (requestBody.posttype == 'bill' || requestBody.posttype == 'polinkedbill') {
+                    record.attach({
+                        record: { type: 'file', id: fileId },
+                        to: { type: record.Type.VENDOR_BILL, id: recordId }
+                    });
+                }
+                
+                if (requestBody.posttype == 'po') {
+                    record.attach({
+                        record: { type: 'file', id: fileId },
+                        to: { type: record.Type.PURCHASE_ORDER, id: recordId }
+                    });
+                }
+            } catch (e) {
+                log.error({
+                    title: 'File Attach Error',
+                    details: e.message
+                });
+            }
+        });
 
 
 

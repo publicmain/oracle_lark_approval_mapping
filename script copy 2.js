@@ -5,13 +5,38 @@
 /* 修改后记得save和upload file，否则云端还是旧的脚本，自然仍旧报错*/
 
 
-define(['N/record', 'N/format', 'N/file', 'N/encode'], function (record, format, file, encode) {
+define(['N/record', 'N/format', 'N/file', 'N/encode','N/search'], function (record, format, file, encode) {
     function parseDate(dateString) {
         return format.parse({
             value: dateString,
             type: format.Type.DATE
         });
     }
+
+    /**
+ * 检查指定单据类型是否存在相同的 tranid
+ * @param {string} recordType - 例如 record.Type.PURCHASE_ORDER 或 record.Type.VENDOR_BILL
+ * @param {string} tranid - 前端传入的 tranid
+ * @returns {boolean} 如果重复，返回 true；否则返回 false
+ */
+    function isTranIdDuplicated(recordType, tranid) {
+        // 如果前端没传 tranid，视为不重复
+        if (!tranid) return false;
+
+        var duplicateSearch = search.create({
+            type: recordType,
+            filters: [
+                ['tranid', 'is', tranid],
+                'AND',
+                ['mainline', 'is', 'T']
+            ],
+            columns: ['internalid']
+        });
+
+        var sr = duplicateSearch.run().getRange({ start: 0, end: 1 });
+        return (sr && sr.length > 0);
+    }
+
 
     /**
     
@@ -139,24 +164,32 @@ define(['N/record', 'N/format', 'N/file', 'N/encode'], function (record, format,
 
 
         }
-        var tranid = requestBody.tranid;
-        var tranidSearch = search.create({
-            type: record.Type.PURCHASE_ORDER,
-            filters: [
-                ['tranid', 'is', tranid]
-            ],
-            columns: ['internalid']
-        });
+        // var tranid = requestBody.tranid;
+        // var tranidSearch = search.create({
+        //     type: record.Type.PURCHASE_ORDER,
+        //     filters: [
+        //         ['tranid', 'is', tranid]
+        //     ],
+        //     columns: ['internalid']
+        // });
 
-        var searchResult = tranidSearch.run().getRange({ start: 0, end: 1 });
-        if (searchResult.length > 0) {
-            // 如果找到重复的tranid，返回错误信息
-            return JSON.stringify({
-                success: false,
-                message: 'Duplicate tranid detected. The tranid already exists.'
-            });
-        }
+        // var searchResult = tranidSearch.run().getRange({ start: 0, end: 1 });
+        // if (searchResult.length > 0) {
+        //     // 如果找到重复的tranid，返回错误信息
+        //     return JSON.stringify({
+        //         success: false,
+        //         message: 'Duplicate tranid detected. The tranid already exists.'
+        //     });
+        // }
         if (requestBody.posttype == 'po') {
+            // ========== 检查重复 ==========
+            if (isTranIdDuplicated(record.Type.PURCHASE_ORDER, requestBody.tranid)) {
+                return JSON.stringify({
+                    success: false,
+                    message: 'Duplicate tranid detected for Purchase Order. The tranid already exists: ' + requestBody.tranid
+                });
+            }
+        // ========== 无重复则继续创建 PO ==========
             var objRecord = record.create({
                 type: record.Type.PURCHASE_ORDER,
                 isDynamic: true

@@ -2,7 +2,7 @@ import requests
 import json
 from config import get_tenant_access_token
 from instance import get_current_and_past_week_timestamps, get_approval_instance_ids
-from approval_detail import get_details_list, extract_details, extract_value, get_instance_details, extract_currency_details,extract_fromId
+from approval_detail import get_details_list, extract_details, extract_value,extract_attachment_ext_names
 from field_internel_id import (mapping_date, mapping_entity_subsidiary, mapping_GL_Account, mapping_Vendor,
                                mapping_division, mapping_postperiod, mapping_giro_paid,mapping_business, mapping_product_code,
                                mapping_product_type, mapping_project_code, mapping_scheme, mapping_currency,mapping_item,mapping_taxcode,mapping_Location)
@@ -36,6 +36,7 @@ def generate_request_body(instance_response,type):
     transaction_date = extract_value(instance_response, "Transaction date")
     details_list = extract_details(instance_response)
     Attachment = extract_value(instance_response, "Attachments")
+    Attachment_names = extract_attachment_ext_names(instance_response)
     GL_Account = get_details_list("GL Account", details_list)
     Division_Code = get_details_list("Division Code", details_list)
     # print("original Division_Code:", Division_Code)
@@ -115,14 +116,15 @@ def generate_request_body(instance_response,type):
     attachment_info = []
     if Attachment:
         attachment_urls = Attachment if isinstance(Attachment, list) else [Attachment]
-        for attachment_url in attachment_urls:
-            base64_attachment, filename, file_extension, _ = download_file_as_base64(attachment_url)
+        for i in range(len(attachment_urls)):
+            base64_attachment, filename, file_extension, _ = download_file_as_base64(attachment_urls[i])
+            # print("filename:", Attachment_names[i])
             if base64_attachment:
                 if not file_extension:
                     file_extension = filename.split('.')[-1] if '.' in filename else 'txt'
                 attachment_item = {
                     "type": file_extension,
-                    "title": filename,
+                    "title": Attachment_names[i],
                     # "encodeData": base64_attachment
                     "encodeData": base64_attachment
                 }
@@ -132,15 +134,6 @@ def generate_request_body(instance_response,type):
     if type == "po":
         sublist = []
         for i in range(len(details_list)):
-            # rate = float(Unit_Price[i]) if Unit_Price[i] else 0.0
-            # amount = float(Amount_excl_GST[i]) if Amount_excl_GST[i] else 0.0
-            # taxrate = "9%"
-            # taxamount = round(amount * 0.09, 2)
-            # grossamount = amount + taxamount
-
-            # 假设数量为金额/单价
-            # if rate != 0:
-            #     quantity = amount / rate
             if items[i] :
                 item_line = {
                     "sublistitemtype": "item",
@@ -192,9 +185,9 @@ def generate_request_body(instance_response,type):
                 "entity": str(vendor_id),
                 "trandate": transaction_date,
                 "subsidiary": str(subsidiary_id),
-                "tranid":"for_testing(ignore)"+str(Serial_Number)+"10",
+                "tranid":"for_testing(ignore)"+str(Serial_Number)+"11",
                 # "tranid": "potest024",
-                "memo": "memo",
+                "memo": memo,
                 "location": location,  
                 "currency": currency,  
                 "custbody7": 6637,
@@ -205,15 +198,6 @@ def generate_request_body(instance_response,type):
     if type == "bill":
         sublist = []
         for i in range(len(details_list)):
-            # rate = float(Unit_Price[i]) if Unit_Price[i] else 0.0
-            # amount = float(Amount_excl_GST[i]) if Amount_excl_GST[i] else 0.0
-            # taxrate = "9%"
-            # taxamount = round(amount * 0.09, 2)
-            # grossamount = amount + taxamount
-
-            # 假设数量为金额/单价
-            # if rate != 0:
-            #     quantity = amount / rate
             if items[i] :
                 item_line = {
                     "sublistitemtype": "item",
@@ -273,8 +257,8 @@ def generate_request_body(instance_response,type):
             "currency": currency,
             "exchangerate": exchange_rate,
             "custbody_document_date": trandate_bill,
-            # "tranid":"for_testing(ignore)"+str(Serial_Number),
-            "tranid": "test042",
+            "tranid":"for_testing(ignore)"+str(Serial_Number)+"1",
+            # "tranid": "test042",
             "custbody7": 6637,
             "custbody_giropaidorpaid": giro_paid,
             "sublist": sublist,
