@@ -2,7 +2,7 @@ import requests
 import json
 from config import get_tenant_access_token
 from instance import get_current_and_past_week_timestamps, get_approval_instance_ids
-from approval_detail import get_details_list, extract_details, extract_value,extract_attachment_ext_names
+from approval_detail import get_details_list, extract_details, extract_value,extract_attachment_ext_names,get_instance_details
 from field_internel_id import (mapping_date, mapping_entity_subsidiary, mapping_GL_Account, mapping_Vendor,
                                mapping_division, mapping_postperiod, mapping_giro_paid,mapping_business, mapping_product_code,
                                mapping_product_type, mapping_project_code, mapping_scheme, mapping_currency,mapping_item,mapping_taxcode,mapping_Location)
@@ -10,17 +10,17 @@ from file_util import download_file_as_base64
 from datetime import datetime
 
 def convert_date_to_ddmmyyyy(date_str):
-    # 假设mapping_date返回"YYYY-MM-DD"格式，这里转为"dd/mm/yyyy"
     dt = datetime.strptime(date_str, "%Y-%m-%d")
     return dt.strftime("%d/%m/%Y")
 
 def conditional_map(value, mapping_func):
-        # 如果 value 存在且第一个元素非空（或按业务逻辑判断非空条件）
             return mapping_func(value) if value else value
 
 def generate_request_body(instance_response,type):
+    # print("instance_response:", instance_response)
     Serial_Number = extract_value(instance_response, "Serial no.")
     Entity = extract_value(instance_response, "Entity")
+    # print("Entity:", Entity)
     Vendor = extract_value(instance_response, "Vendor")
     Invoice_number = extract_value(instance_response, "Invoice Number")
     Date_of_Invoice_PO = extract_value(instance_response, "Transaction date")
@@ -43,6 +43,7 @@ def generate_request_body(instance_response,type):
     Description = get_details_list("Description", details_list)
     # Currency = get_details_list("Unit Price", details_list_currency)
     Business = get_details_list("Business", details_list)
+    # print("Business:", Business)
     # print("original Business:", Business)
     Scheme = get_details_list("Scheme", details_list)
     Product_Type = get_details_list("Product Type", details_list)
@@ -74,7 +75,7 @@ def generate_request_body(instance_response,type):
     
 
     if Entity == "DFS Asset Purchase Company Pte Ltd" or Entity == "SHANGHAI DALAI":
-        print(f"Entity '{Entity}' 被排除，返回 None")
+        # print(f"Entity '{Entity}' 被排除，返回 None")
         return None
     #V001597 Nguyen Ngo A Binh is not exist in Netsuite
     #70240 Settlement & Transaction Processing is not exist in Netsuite
@@ -83,8 +84,8 @@ def generate_request_body(instance_response,type):
     if Vendor:
         vendor_id = mapping_Vendor(Vendor) 
     else:
-            print("Vendor is empty")
-            print("------------------------------------------------------------")
+            # print("Vendor is empty")
+            # print("------------------------------------------------------------")
             return None
     if memo:
         memo = memo
@@ -100,6 +101,7 @@ def generate_request_body(instance_response,type):
     divisions = conditional_map(Division_Code, mapping_division)
     # print("divisions:", divisions)
     Business = conditional_map(Business, mapping_business)
+    # print("Business:", Business)
     Scheme = conditional_map(Scheme, mapping_scheme)
     # print("original Scheme:", Scheme)
     Product_Type = conditional_map(Product_Type,mapping_product_type)  # 无条件映射
@@ -138,6 +140,20 @@ def generate_request_body(instance_response,type):
         sublist = []
         for i in range(len(details_list)):
             if items[i] :
+                # print("items:", items[i])
+                # print("description:", Description[i])
+                # print("department:", divisions[i])
+                # print("taxcode:", taxcodes_po[i])
+                # print("taxrate:", rates_po[i])
+                # print("rate:", unit_prices[i])
+                # print("amount:", item_amounts[i])
+                # print("taxamount:", tax_amounts[i])
+                # # print("cseg_business:", Business[i])
+                # # print("cseg_scheme:", Scheme[i])
+                # print("cseg_pr_type:", Product_Type[i])
+                # print("class:", Product_Code[i])
+                # print("cseg1:", Project_Code[i])
+                # print("quantity:", quantities[i])
                 item_line = {
                     "sublistitemtype": "item",
                     "item": str(items[i]),
@@ -160,6 +176,20 @@ def generate_request_body(instance_response,type):
                 }
                 sublist.append(item_line)
             else:
+                # print("gl_account_ids:", gl_account_ids[i])
+                # print("description:", Description[i])
+                # print("department:", divisions[i])
+                # print("taxcode:", taxcodes_po[i])
+                # print("taxrate:", rates_po[i])
+                # print("rate:", unit_prices[i])
+                # print("amount:", expense_amounts[i])
+                # print("taxamount:", tax_amounts[i])
+                # print("cseg_business:", Business[i])
+                # print("cseg_scheme:", Scheme[i])
+                # print("cseg_pr_type:", Product_Type[i])
+                # print("class:", Product_Code[i])
+                # print("cseg1:", Project_Code[i])
+
                 # print("expense_amounts:", expense_amounts)
                 expense_line = {
                     "sublistitemtype": "expense",
@@ -188,7 +218,8 @@ def generate_request_body(instance_response,type):
                 "entity": str(vendor_id),
                 "trandate": transaction_date,
                 "subsidiary": str(subsidiary_id),
-                "tranid":"for_testing(ignore)"+str(Serial_Number)+"12",
+                # "tranid":"for_testing(ignore  2)" + str(Serial_Number),
+                "tranid":Serial_Number,
                 # "tranid": "potest024",
                 "memo": memo,
                 "location": location,  
@@ -197,7 +228,11 @@ def generate_request_body(instance_response,type):
                 "exchangerate": exchange_rate,
                 "sublist": sublist,
                 "attachment": attachment_info
+                # "attachment": []
             }
+            
+            # formatted_request_body = json.dumps(request_body, indent=4, ensure_ascii=False)
+            # print("request_body:\n", formatted_request_body)
     if type == "bill":
         sublist = []
         for i in range(len(details_list)):
@@ -260,17 +295,19 @@ def generate_request_body(instance_response,type):
             "currency": currency,
             "exchangerate": exchange_rate,
             "custbody_document_date": trandate_bill,
-            "tranid":"for_testing(ignore)"+str(Serial_Number)+"5",
+            # "tranid":"for_testing(ignore)"+str(Serial_Number)+"5",
+            "tranid":Serial_Number,
             # "tranid": "test042",
             "custbody7": 6637,
             "custbody_giropaidorpaid": giro_paid,
             "sublist": sublist,
             "attachment": attachment_info
         }
-        
-    # 打印请求体
-    # print(json.dumps(request_body, indent=4))
-    print("serial_number:", Serial_Number)
-    # from_id = extract_fromId(instance_response)
+
+    # print("serial_number:", Serial_Number)
     return request_body, Serial_Number
 
+if __name__ == "__main__":
+    instanse = get_instance_details("A709021D-E0A1-46E8-A0E8-0F5AF1C550EF")
+    request_body, Serial_Number = generate_request_body(instanse,"po")
+       

@@ -7,17 +7,18 @@ API_URL = "https://open.larksuite.com/open-apis/approval/v4/instances"
 
 def get_current_and_past_week_timestamps() -> tuple[int, int]:
     """
-    获取当前时间和一周前的时间，转换为毫秒级时间戳。
+    获取当前时间和三天前的时间，转换为毫秒级时间戳。
 
     返回:
         Tuple[int, int]: (start_time, end_time)
     """
     end_time_dt = datetime.now()
-    start_time_dt = end_time_dt - timedelta(weeks=1)
+    start_time_dt = end_time_dt - timedelta(days=3)  
     START_TIME = int(start_time_dt.timestamp() * 1000)
     END_TIME = int(end_time_dt.timestamp() * 1000)
 
     return START_TIME, END_TIME
+
 
 def get_approval_instance_ids(
     access_token: str,

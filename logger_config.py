@@ -1,10 +1,8 @@
-# logger_config.py
 
 import logging
 from logging.handlers import RotatingFileHandler
 import os
 
-# 创建日志目录（如果不存在）
 LOG_DIRECTORY = 'logs'
 if not os.path.exists(LOG_DIRECTORY):
     os.makedirs(LOG_DIRECTORY)
@@ -19,7 +17,6 @@ def get_loggers(process_name):
     返回:
         tuple: (success_logger, error_logger)
     """
-    # 配置成功日志记录器
     success_logger = logging.getLogger(f'{process_name}_success_logger')
     success_logger.setLevel(logging.INFO)
     success_handler = RotatingFileHandler(
@@ -32,7 +29,6 @@ def get_loggers(process_name):
     if not success_logger.handlers:
         success_logger.addHandler(success_handler)
     
-    # 配置失败日志记录器
     error_logger = logging.getLogger(f'{process_name}_error_logger')
     error_logger.setLevel(logging.ERROR)
     error_handler = RotatingFileHandler(

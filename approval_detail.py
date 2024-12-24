@@ -2,31 +2,27 @@ import requests
 import json
 import os
 from config import get_tenant_access_token
-# Base URL and endpoint
+
 def get_instance_details(instance):
-    base_url = "https://open.larksuite.com"  # Replace with actual base URL if applicable
+    base_url = "https://open.larksuite.com"  
     endpoint = "/open-apis/approval/v4/instances/{instance}"
-    # Complete URL with the path parameter
     url = base_url + endpoint.format(instance=instance)
 
-    # Headers
+ 
     headers = {
-        "Authorization": "Bearer "+get_tenant_access_token()  # Replace with actual token as needed
+        "Authorization": "Bearer "+get_tenant_access_token()  
     }
 
-    # Making the GET request
+
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
        return response
     else:
-        #print(f"Request failed with status code {response.status_code}")
+
         return response.text
 # #print(get_instance_details("8F292381-5054-4F17-9424-C9D4CFFA596D").json())
 
-# Handling the response
-
 def extract_details(response):
-    # 使用 extract_value 函数提取 'Details' 字段的值
     details = extract_value(response, 'Details')
     if not details:
         #print("未找到 'Details' 信息")
@@ -50,7 +46,7 @@ def extract_details(response):
     
     return details_list
 def extract_currency_details(response):
-    # 使用 extract_value 函数提取 'Details' 字段的值
+
     details = extract_value(response, 'Details')
     if not details:
         #print("未找到 'Details' 信息")
@@ -79,7 +75,6 @@ def extract_currency_details(response):
     return currency_list
 
 def extract_details(response):
-    # 使用 extract_value 函数提取 'Details' 字段的值
     details = extract_value(response, 'Details')
     if not details:
         #print("未找到 'Details' 信息")
@@ -103,16 +98,6 @@ def extract_details(response):
     
     return details_list
 
-# def print_details(details_list):
-#     if not details_list:
-#         #print("没有可打印的 Details 信息。")
-#         return
-    
-#     for idx, detail in enumerate(details_list, 1):
-#         #print(f"Detail {idx}:")
-#         for key, value in detail.items():
-#             #print(f"{key}: {value}")
-#         #print("-" * 40)
 
 def extract_attachment_ext_names(response):
     """
@@ -129,7 +114,7 @@ def extract_attachment_ext_names(response):
             data = response.json()
             form = data.get('data', {}).get('form', [])
             
-            # 处理 'form' 字段可能是字符串或列表的情况
+
             if isinstance(form, str):
                 try:
                     form = json.loads(form)
@@ -140,7 +125,6 @@ def extract_attachment_ext_names(response):
                 #print(f"未知的 'form' 字段类型: {type(form)}")
                 return None
 
-            # 遍历 'form' 寻找 'Attachments' 字段
             for item in form:
                 if isinstance(item, dict) and item.get('name') == 'Attachments':
                     ext_str = item.get('ext')
@@ -148,10 +132,10 @@ def extract_attachment_ext_names(response):
                         #print("未找到 'ext' 字段或其值为空。")
                         return None
                     
-                    # 按逗号分割
+            
                     ext_list = ext_str.split(',')
                     
-                    # 去除后缀，只保留文件名
+                   
                     names = [os.path.splitext(name)[0] for name in ext_list]
                     return names
             
@@ -217,7 +201,7 @@ def extract_fromId(response):
             id_value = id_value.split('+')[0]
             return id_value
         else:
-            return None  # 如果 id 不是符合条件的字符串，设置为None
+            return None 
     else:
         #print("response 不是有效的字典，或者没有 'id' 字段")
         return None

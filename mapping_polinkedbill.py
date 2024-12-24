@@ -72,6 +72,7 @@ for instance_id in instance_ids:
             "attachment": attachment_info
         }
         response = create_vendor_bill_in_netsuite(request_body)
+        print(response)
         
 
 

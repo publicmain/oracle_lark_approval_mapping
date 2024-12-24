@@ -56,13 +56,13 @@ def create_vendor_bill_in_netsuite(request_body):
     try:
         response = requests.post(NETSUITE_RESTLET_URL, headers=headers, json=request_body, auth=oauth)
         if response.status_code == 200:
-            print("instance created successfully.")
-            print("Response data:", response.json())
+            # print("instance created successfully.")
+            # print("Response data:", response.json())
             return response.json()
         else:
-            print(f"Failed to create instance. Status code: {response.status_code}")
-            print("Response:", response.text)
+            # print(f"Failed to create instance. Status code: {response.status_code}")
+            # print("Response:", response.text)
             return {"error": response.text, "status_code": response.status_code}
     except Exception as e:
-        print(f"Exception occurred during API call: {e}")
+        # print(f"Exception occurred during API call: {e}")
         return {"error": str(e)}

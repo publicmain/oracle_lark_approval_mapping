@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import re
 import requests
+from typing import List, Optional
 from config import base_url,oauth,headers
 postperiod = {
     '157': 'Aug 2020',
@@ -168,7 +169,76 @@ def fetch_all_items_paged(table_name, columns="*", order_by="id", batch_size=100
 
     return all_items
 
-def match_item(items, target, key, partial=False):
+def find_exist_PO(tranid: str, batch_size: int = 1000) -> Optional[int]:
+    """
+    分批次从 transaction 表中获取 type 为 'PurchOrd' 的记录，精确匹配 tranid，并返回对应的 id。
+
+    参数:
+        tranid (str): 要匹配的 tranid 值。
+        batch_size (int): 每次请求获取的记录数。默认值为 1000。
+
+    返回:
+        Optional[int]: 如果找到匹配的 tranid，返回对应的 id；否则，返回 None。
+    """
+    last_id = 0
+    has_more = True
+    table_name = "transaction"
+    columns = "id, tranid"
+    order_by = "id"
+
+    while has_more:
+        query = f"""
+        SELECT {columns}
+        FROM {table_name}
+        WHERE type = 'PurchOrd' AND id > {last_id}
+        ORDER BY {order_by}
+        FETCH NEXT {batch_size} ROWS ONLY
+        """
+        try:
+            response = requests.post(
+                base_url,
+                headers=headers,
+                json={"q": query},
+                auth=oauth
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            items: List[dict] = data.get("items", [])
+            
+            print(f"Fetched {len(items)} purchase orders. Total so far: Checking for tranid '{tranid}'.")
+
+            # 遍历当前批次的记录，查找匹配的 tranid
+            for item in items:
+                if item.get('tranid') == tranid:
+                    matched_id = item.get('id')
+                    print(f"Found matching tranid '{tranid}' with id: {matched_id}")
+                    return matched_id
+
+            if len(items) < batch_size:
+                has_more = False
+            else:
+                # 假设 id 是整数类型
+                last_id = max(item["id"] for item in items if "id" in item)
+
+       
+
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+            break
+        except ValueError as ve:
+            print(f"JSON decode failed: {ve}")
+            break
+        except KeyError as ke:
+            print(f"Missing expected key in response: {ke}")
+            break
+
+    print(f"tranid '{tranid}' not found in the fetched records.")
+    return None
+
+
+def match_item(
+        items, target, key, partial=False):
     """
     当 target 是字符串：
         - partial=False：返回与 target 全字匹配的首个 item（不区分大小写），没有则返回 None。
@@ -203,9 +273,10 @@ def match_item_exact(items, target, key):
         return [next((item for item in items if item.get(key).startswith(t.split()[0])), None) for t in target]
     else:
         return next((item for item in items if item.get(key).startswith(target.split()[0])), None)
-    
+def test(target):
+    all_po = fetch_all_items("purchaseorder", columns="id, tranid")
 def mapping_entity_subsidiary(target):
-    #print("mapping_entity_subsidiary target",target)
+    print("mapping_entity_subsidiary target",target)
     target = re.sub(r'\s*\(fka[^)]*\)', '', target)
     all_subsidiaries = fetch_all_items("subsidiary", columns="id, name")
     matched = match_item(all_subsidiaries, target, "name", partial=True)
@@ -213,7 +284,7 @@ def mapping_entity_subsidiary(target):
     if matched:
         return matched["id"]
     else:
-        print(f"Subsidiary with name containing '{target}' not found.")
+        # print(f"Subsidiary with name containing '{target}' not found.")
         return None
 
 def mapping_Vendor(target):
@@ -298,149 +369,191 @@ def mapping_division(target):
     
 def mapping_business(target):
     cleaned_list = []
-
+    
     for item in target:
         if item is None:
-            # Retain None if the element is None
+            # 保留 None
             cleaned_list.append(None)
         elif isinstance(item, str):
-            # Find the first occurrence of ':' and extract the part after it
+            # 提取冒号后面的部分
             parts = item.split(":", 1)
-            
             if len(parts) > 1:
-                # Strip any leading or trailing whitespace from the part after the colon
                 cleaned_list.append(parts[1].strip())
             else:
-                # If there is no colon, return the original string
                 cleaned_list.append(item.strip())
         else:
-            # If the item is not a string or None, append None
+            # 非字符串且非 None 的情况，添加 None
             cleaned_list.append(None)
-    #print("mapping_business target",target)
+    
+    # 获取所有业务记录
     all_accounts = fetch_all_items("CUSTOMRECORD_CSEG_BUSINESS", columns="id, name", order_by="id")
-    matched = match_item(all_accounts, cleaned_list, "name", partial=False)
-    #print("business matched",matched)
-    if isinstance(target, list):
-        if matched and any(matched):
-            ids = [item["id"] for item in matched if item]
-            return ids
+    
+    # 创建 name 到 id 的映射字典（忽略大小写）
+    name_to_id_map = {account['name'].lower(): account['id'] for account in all_accounts if 'name' in account and 'id' in account}
+    
+    # 构建返回的 ids 列表，保持与输入列表长度一致
+    ids = []
+    for item in cleaned_list:
+        if item is None:
+            ids.append(None)
         else:
-            return [None] * len(target)
-    else:
-        if matched:
-            return matched["id"]
-        else:
-            return None
+            # 查找对应的 id，若未找到则返回 None
+            id_value = name_to_id_map.get(item.lower(), None)
+            ids.append(id_value)
+    
+    return ids
+
     
 def mapping_product_code(target):
-    #print("mapping_product_code target",target)
+    cleaned_list = []
+    
+    for item in target:
+        if item is None:
+            # 保留 None
+            cleaned_list.append(None)
+        elif isinstance(item, str):
+            # 提取冒号后面的部分（如果存在）
+            parts = item.split(":", 1)
+            if len(parts) > 1:
+                cleaned_list.append(parts[1].strip())
+            else:
+                cleaned_list.append(item.strip())
+        else:
+            # 非字符串且非 None 的情况，添加 None
+            cleaned_list.append(None)
+    
+    # 获取所有分类记录
     all_accounts = fetch_all_items("classification", columns="id, name", order_by="id")
-    matched = match_item(all_accounts, target, "name", partial=True)
-    #print("product code matched",matched)
-    if isinstance(target, list):
-        if matched and any(matched):
-            ids = [item["id"] if item else None for item in matched]
-            return ids
+    
+    # 创建 name 到 id 的映射字典（忽略大小写）
+    name_to_id_map = {account['name'].lower(): account['id'] for account in all_accounts if 'name' in account and 'id' in account}
+    
+    # 匹配并构建 ids 列表，保持与输入列表长度一致
+    ids = []
+    for item in cleaned_list:
+        if item is None:
+            ids.append(None)
         else:
-            return [None] * len(target)
-    else:
-        if matched:
-            return matched["id"]
-        else:
-            return None
+            # 查找对应的 id，若未找到则返回 None
+            id_value = name_to_id_map.get(item.lower(), None)
+            ids.append(id_value)
+    
+    return ids
+
         
 
 def mapping_product_type(target):
-    #print("mapping_product_type target",target)
     cleaned_list = []
 
     for item in target:
         if item is None:
-            # Retain None if the element is None
+            # 保留 None
             cleaned_list.append(None)
         elif isinstance(item, str):
-            # Find the first occurrence of ':' and extract the part after it
+            # 提取冒号后面的部分（如果存在）
             parts = item.split(":", 1)
-            
             if len(parts) > 1:
-                # Strip any leading or trailing whitespace from the part after the colon
                 cleaned_list.append(parts[1].strip())
             else:
-                # If there is no colon, return the original string
                 cleaned_list.append(item.strip())
         else:
-            # If the item is not a string or None, append None
+            # 非字符串且非 None 的情况，添加 None
             cleaned_list.append(None)
+    
+    # 获取所有产品类型记录
     all_accounts = fetch_all_items("CUSTOMRECORD_CSEG_PR_TYPE", columns="id, name", order_by="id")
-    matched = match_item(all_accounts, cleaned_list, "name", partial=True)
-    #print("product type matched",matched)
-    if isinstance(target, list):
-        if matched and any(matched):
-            ids = [item["id"] if item else None for item in matched]
-            return ids
+    
+    # 创建 name 到 id 的映射字典（忽略大小写）
+    name_to_id_map = {account['name'].lower(): account['id'] for account in all_accounts if 'name' in account and 'id' in account}
+    
+    # 匹配并构建 ids 列表，保持与输入列表长度一致
+    ids = []
+    for item in cleaned_list:
+        if item is None:
+            ids.append(None)
         else:
-            return [None] * len(target)
-    else:
-        if matched:
-            return matched["id"]
-        else:
-            return None
+            # 查找对应的 id，若未找到则返回 None
+            id_value = name_to_id_map.get(item.lower(), None)
+            ids.append(id_value)
+    
+    return ids
+
+
     
 def mapping_project_code(target):
-    #print("mapping_project_code target",target)
-    all_accounts = fetch_all_items("CUSTOMRECORD_CSEG1", columns="id, name", order_by="id")
-    matched = match_item(all_accounts, target, "name", partial=True)
-    #print("project code matched",matched)
-    if isinstance(target, list):
-        if matched and any(matched):
-            ids = [item["id"] if item else None for item in matched]
-            return ids
-        else:
-            return [None] * len(target)
-    else:
-        if matched:
-            return matched["id"]
-        else:
-            return None
-    
-def mapping_scheme(target):
-    #print("mapping_scheme target", target)
     cleaned_list = []
-
-    for index, item in enumerate(target):
+    
+    for item in target:
         if item is None:
-            # Retain None if the element is None
+            # 保留 None
             cleaned_list.append(None)
         elif isinstance(item, str):
-            # Split the string by ':' and strip whitespace from each part
-            parts = [part.strip() for part in item.split(':')]
+            # 提取冒号后面的部分（如果存在）
+            parts = item.split(":", 1)
+            if len(parts) > 1:
+                cleaned_list.append(parts[1].strip())
+            else:
+                cleaned_list.append(item.strip())
+        else:
+            # 非字符串且非 None 的情况，添加 None
+            cleaned_list.append(None)
+    
+    # 获取所有项目代码记录
+    all_accounts = fetch_all_items("CUSTOMRECORD_CSEG1", columns="id, name", order_by="id")
+    
+    # 创建 name 到 id 的映射字典（忽略大小写）
+    name_to_id_map = {account['name'].lower(): account['id'] for account in all_accounts if 'name' in account and 'id' in account}
+    
+    # 匹配并构建 ids 列表，保持与输入列表长度一致
+    ids = []
+    for item in cleaned_list:
+        if item is None:
+            ids.append(None)
+        else:
+            # 查找对应的 id，若未找到则返回 None
+            id_value = name_to_id_map.get(item.lower(), None)
+            ids.append(id_value)
+    
+    return ids
 
+    
+def mapping_scheme(target):
+    cleaned_list = []
+
+    for item in target:
+        if item is None:
+            # 保留 None
+            cleaned_list.append(None)
+        elif isinstance(item, str):
+            # 分割字符串并提取最后一部分
+            parts = [part.strip() for part in item.split(':')]
             if parts:
-                # Extract the last part as the desired scheme name
                 scheme_name = parts[-1]
                 cleaned_list.append(scheme_name)
             else:
-                # If splitting results in an empty list, append an empty string
                 cleaned_list.append("")
         else:
-            # If the item is neither None nor a string, append None
+            # 非字符串且非 None 的情况，添加 None
             cleaned_list.append(None)
-
-    all_accounts = fetch_all_items("CUSTOMRECORD_CSEG_SCHEME", columns="id, name", order_by="id")
-    matched = match_item(all_accounts, cleaned_list, "name", partial=True)
-    #print("scheme matched", matched)
     
-    if isinstance(target, list):
-        if matched and any(matched):
-            ids = [item["id"] if item else None for item in matched]
-            return ids
+    # 获取所有方案记录
+    all_accounts = fetch_all_items("CUSTOMRECORD_CSEG_SCHEME", columns="id, name", order_by="id")
+    
+    # 创建 name 到 id 的映射字典（忽略大小写）
+    name_to_id_map = {account['name'].lower(): account['id'] for account in all_accounts if 'name' in account and 'id' in account}
+    
+    # 匹配并构建 ids 列表，保持与输入列表长度一致
+    ids = []
+    for item in cleaned_list:
+        if item is None:
+            ids.append(None)
         else:
-            return [None] * len(target)
-    else:
-        if matched:
-            return matched["id"]
-        else:
-            return None
+            # 查找对应的 id，若未找到则返回 None
+            id_value = name_to_id_map.get(item.lower(), None)
+            ids.append(id_value)
+    
+    return ids
+
     
 def mapping_currency(target):
     # print("mapping_currency target",target)
@@ -459,7 +572,6 @@ def mapping_currency(target):
         else:
             return None
     
-# 映射日期格式
 def mapping_date(date_str):
     if date_str:
         date_obj = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
@@ -479,13 +591,10 @@ def mapping_postperiod(input_date):
     :param id_period_dict: 包含 Internal ID 和 Period Name 的字典
     :return: 匹配的键，如果未找到则返回 None
     """
-    # 将输入日期字符串解析为 datetime 对象
     date_object = datetime.strptime(input_date, "%d/%m/%Y")
     
-    # 格式化日期为 'Mon YYYY' 格式
     formatted_date = date_object.strftime("%b %Y")
     
-    # 遍历字典查找匹配的值并返回键
     for key, value in postperiod.items():
         if formatted_date == value:
             return key
@@ -545,6 +654,6 @@ def mapping_giro_paid(target):
         else:
             return 2
     else:
-        print(f"Giro Paid with name containing '{target}' not found.")
+        # print(f"Giro Paid with name containing '{target}' not found.")
         return None
 
