@@ -19,16 +19,43 @@ def home():
     return "Flask API is running!", 200
 
 # 通用的响应处理函数
-def handle_response(serial_number, response, success_message, success_logger, error_logger):
+def handle_response(instance_id, response, success_message, success_logger, error_logger, formid, serial_number):
     """
-    根据响应内容决定记录到success.log还是error.log
-    仅提取并记录嵌套的message字段内容到error.log
+    根据传入的formid决定记录到success.log还是error.log
+    如果formid不是None，记录到success.log
+    如果formid是None，记录到error.log，并提取并记录message字段内容
     """
-    if response.get('status_code', 200) >= 400 or 'error' in response:
-        print("error")
+    def contains_duplicate(obj):
+        """
+        递归检查对象中是否包含“duplicate”关键字（不区分大小写）。
+        """
+        if isinstance(obj, dict):
+            for value in obj.values():
+                if contains_duplicate(value):
+                    return True
+        elif isinstance(obj, list):
+            for item in obj:
+                if contains_duplicate(item):
+                    return True
+        elif isinstance(obj, str):
+            if 'duplicate' in obj.lower():
+                return True
+        return False
+
+    # 递归检查响应中是否包含“duplicate”
+    if contains_duplicate(response):
+        # 检测到“duplicate”，不记录任何日志，直接返回
+        return None, None  # 表示无需记录日志
+    if formid is not None:
+        # 记录成功日志
+        success_logger.info(success_message)
+        return {"instance_id": instance_id, "response": response}, True
+    else:
+        # 提取并记录错误信息
         message = "Unknown error"
         if 'error' in response:
             try:
+                
                 # 解析外层的error JSON字符串
                 error_content = json.loads(response['error'])
                 if 'message' in error_content.get('error', {}):
@@ -42,12 +69,10 @@ def handle_response(serial_number, response, success_message, success_logger, er
             except Exception as e:
                 # 捕获其他可能的异常
                 message = f"Error parsing message: {str(e)}"
+        
+        # 记录错误日志
         error_logger.error(f"Failed to process serial_number: {serial_number} - Message: {message}")
         return {"serial_number": serial_number, "response": message}, False
-    else:
-        print("success")
-        success_logger.info(success_message)
-        return {"serial_number": serial_number, "response": response}, True
 
 # 处理一般审批实例并创建供应商账单（bill接口）
 def process_bill_approvals():
@@ -67,24 +92,38 @@ def process_bill_approvals():
     
     results = []
     for instance_id in instance_ids:
-        if instance_id == "8F292381-5054-4F17-9424-C9D4CFFA596D":
-            try:
-                instance_response = get_instance_details(instance_id)
-                request_body, serial_number = generate_request_body(instance_response, "bill")
-                if request_body is None:
-                    continue
-                response = create_vendor_bill_in_netsuite(request_body)
-                result, is_success = handle_response(
-                    serial_number,
-                    response,
-                    f"Successfully processed bill serial_number: {serial_number}",
-                    success_logger,
-                    error_logger
-                )
-                results.append(result)
-            except Exception as e:
-                error_logger.error(f"Failed to process serial_number: {serial_number} - Exception: {str(e)}")
-                results.append({"serial_number": serial_number, "response": str(e)})
+        try:
+            instance_response = get_instance_details(instance_id)
+            result = generate_request_body(instance_response, "bill")
+            
+            if result is None:
+                Serial_Number = extract_value(instance_response, "Serial no.")
+                # 如果 generate_request_body 返回 None，记录错误并跳过
+                error_message = f"Vendor bill is empty or Entity is DFS Asset Purchase Company Pte Ltd or SHANGHAI DALAI for Serial_Number : {Serial_Number}"
+                error_logger.error(error_message)
+                results.append({"instance_id": Serial_Number, "response": "generate_request_body returned None"})
+                continue
+            
+            # 假设 generate_request_body 返回的是一个包含 request_body 和 serial_number 的元组
+            request_body, serial_number = result
+            if request_body is None:
+                continue
+            response = create_vendor_bill_in_netsuite(request_body)
+            formid = extract_fromId(response)
+            # print(formid)
+            result, is_success = handle_response(
+                instance_id,
+                response,
+                f"Successfully processed bill serial_number: {serial_number}",
+                success_logger,
+                error_logger,
+                formid,
+                serial_number
+            )
+            results.append(result)
+        except Exception as e:
+            error_logger.error(f"Failed to process serial_number: {serial_number} - Exception: {str(e)}")
+            results.append({"serial_number": serial_number, "response": str(e)})
     return results
 
 # 处理PO审批实例并创建供应商账单（po接口）
@@ -105,20 +144,31 @@ def process_po_approvals():
     
     results = []
     for instance_id in instance_ids:
-        if instance_id == "500A0B09-E31D-4CA9-8D98-66EB5306D9B2":
+        # if instance_id == "1590CFA3-CA5F-4884-BD4D-3C344A46D4E9":
             try:
                 instance_response = get_instance_details(instance_id)
-                request_body, serial_number= generate_request_body(instance_response, "po")
+                result = generate_request_body(instance_response, "po")
+            
+                if result is None:
+                    Serial_Number = extract_value(instance_response, "Serial no.")
+                    # 如果 generate_request_body 返回 None，记录错误并跳过
+                    error_message = f"Vendor bill is empty or Entity is DFS Asset Purchase Company Pte Ltd or SHANGHAI DALAI for Serial_Number : {Serial_Number}"
+                    error_logger.error(error_message)
+                    results.append({"instance_id": Serial_Number, "response": "generate_request_body returned None"})
+                    continue
+                
+                # 假设 generate_request_body 返回的是一个包含 request_body 和 serial_number 的元组
+                request_body, serial_number = result
                 if request_body is None:
                     continue
                 response = create_vendor_bill_in_netsuite(request_body)
                 fromId = extract_fromId(response)
                 
                 # 检查fromId是否存在，决定是否记录为成功
-                if not fromId:
-                    error_logger.error(f"Failed to extract fromId for serial_number: {serial_number} - Response: {response}")
-                    results.append({"serial_number": serial_number, "response": "Failed to extract fromId."})
-                    continue
+                # if not fromId:
+                #     error_logger.error(f"Failed to extract fromId for serial_number: {serial_number} - Response: {response}")
+                #     results.append({"serial_number": serial_number, "response": "Failed to extract fromId."})
+                #     continue
                 
                 success_message = f"Successfully processed PO serial_number: {serial_number}, fromId: {fromId}"
                 result, is_success = handle_response(
@@ -126,7 +176,9 @@ def process_po_approvals():
                     response,
                     success_message,
                     success_logger,
-                    error_logger
+                    error_logger,
+                    fromId,
+                    serial_number
                 )
                 results.append(result)
             except Exception as e:
@@ -152,7 +204,7 @@ def process_polinked_approvals():
     
     results = []
     for instance_id in instance_ids:
-        if instance_id == "F0D8B55F-01DD-49E2-99BF-5269565C7F4B":
+        # if instance_id == "F0D8B55F-01DD-49E2-99BF-5269565C7F4B":
             try:
                 instance_response = get_instance_details(instance_id)
                 Entity = extract_value(instance_response, "Entity")
@@ -161,7 +213,7 @@ def process_polinked_approvals():
                 trandate = extract_value(instance_response, "Date of Invoice")
                 Serial_Number = extract_value(instance_response, "Serial no.")
                 Attachment = extract_value(instance_response, "Attachments")
-        
+                print("Polinked bill Serial_Number:", Serial_Number)
                 subsidiary_id = mapping_entity_subsidiary(Entity)
                 duedate = mapping_date(duedate)
                 trandate = mapping_date(trandate)
@@ -185,15 +237,26 @@ def process_polinked_approvals():
                 request_body_bill = generate_request_body(instance_response, "polinkedbill")
                 PO_insance = extract_value(instance_response, "PO Approval")
                 instance_response_po = get_instance_details(PO_insance[0])
-                request_body_po, Serial_Number = generate_request_body(instance_response_po, "po")
+                result = generate_request_body(instance_response, "po")
+            
+                if result is None:
+                    Serial_Number = extract_value(instance_response, "Serial no.")
+                    # 如果 generate_request_body 返回 None，记录错误并跳过
+                    error_message = f"Vendor bill is empty or Entity is DFS Asset Purchase Company Pte Ltd or SHANGHAI DALAI for Serial_Number : {Serial_Number}"
+                    error_logger.error(error_message)
+                    results.append({"instance_id": Serial_Number, "response": "generate_request_body returned None"})
+                    continue
+                
+                # 假设 generate_request_body 返回的是一个包含 request_body 和 serial_number 的元组
+                request_body_po, serial_number = result
                 if request_body_po is None:
                     continue
                 response_po = create_vendor_bill_in_netsuite(request_body_po)
                 fromId = extract_fromId(response_po)
                 
                 if not fromId:
-                    error_logger.error(f"Failed to extract fromId for Polinked serial_number: {Serial_Number} - Response: {response_po}")
-                    results.append({"Serial_Number": Serial_Number, "response": "Failed to extract fromId."})
+                    error_logger.error(f"Failed to extract fromId for Polinked serial_number: {serial_number} - Response: {response_po}")
+                    results.append({"serial_number": serial_number, "response": "Failed to extract fromId."})
                     continue
                 
                 request_body_final = {
@@ -201,24 +264,27 @@ def process_polinked_approvals():
                     "fromId": fromId,
                     "duedate": duedate,
                     "custbody_document_date": trandate,
-                    "tranid": "for_testing(ignore)" + str(Serial_Number),
+                    "tranid": "for_testing(ignore)" + str(Serial_Number) + "2",
                     "custbody7": 6637,
                     "custbody_giropaidorpaid": giro_paid,
                     "attachment": attachment_info
                 }
                 response_final = create_vendor_bill_in_netsuite(request_body_final)
-                success_message = f"Successfully processed Polinked Serial_Number: {Serial_Number}, fromId: {fromId}"
+                formid_final = extract_fromId(response_final)
+                success_message = f"Successfully processed Polinked serial_number: {Serial_Number}, fromId: {fromId}"
                 result, is_success = handle_response(
                     instance_id,
                     response_final,
                     success_message,
                     success_logger,
-                    error_logger
+                    error_logger,
+                    formid_final,
+                    Serial_Number
                 )
                 results.append(result)
             except Exception as e:
                 error_logger.error(f"Failed to process Polinked Serial_Number: {Serial_Number} - Exception: {str(e)}")
-                results.append({"Serial_Number": Serial_Number, "response": str(e)})
+                results.append({"instance_id": instance_id, "response": str(e)})
     return results
 
 # API端点：/api/bill
@@ -275,4 +341,4 @@ def handle_exception(e):
     return jsonify({"status": "error", "message": "Internal Server Error"}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=10083, debug=True)

@@ -464,7 +464,7 @@ def mapping_date(date_str):
     if date_str:
         date_obj = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
         date_obj_plus_one = date_obj + timedelta(days=1)
-        formatted_date = date_obj.strftime("%d/%m/%Y")
+        formatted_date = date_obj_plus_one.strftime("%d/%m/%Y")
         return formatted_date
     else:
         return None
