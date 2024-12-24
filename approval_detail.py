@@ -19,9 +19,9 @@ def get_instance_details(instance):
     if response.status_code == 200:
        return response
     else:
-        print(f"Request failed with status code {response.status_code}")
+        #print(f"Request failed with status code {response.status_code}")
         return response.text
-# print(get_instance_details("8F292381-5054-4F17-9424-C9D4CFFA596D").json())
+# #print(get_instance_details("8F292381-5054-4F17-9424-C9D4CFFA596D").json())
 
 # Handling the response
 
@@ -29,18 +29,18 @@ def extract_details(response):
     # 使用 extract_value 函数提取 'Details' 字段的值
     details = extract_value(response, 'Details')
     if not details:
-        print("未找到 'Details' 信息")
+        #print("未找到 'Details' 信息")
         return
     
     details_list = []
     for detail_idx, detail in enumerate(details, 1):
         if not isinstance(detail, list):
-            print(f"跳过非列表的 detail[{detail_idx}]: {detail}")
+            #print(f"跳过非列表的 detail[{detail_idx}]: {detail}")
             continue
         detail_dict = {}
         for field in detail:
             if not isinstance(field, dict):
-                print(f"跳过非字典的 field: {field}")
+                #print(f"跳过非字典的 field: {field}")
                 continue
             field_name = field.get('name')
             field_value = field.get('value')
@@ -53,18 +53,18 @@ def extract_currency_details(response):
     # 使用 extract_value 函数提取 'Details' 字段的值
     details = extract_value(response, 'Details')
     if not details:
-        print("未找到 'Details' 信息")
+        #print("未找到 'Details' 信息")
         return
 
     currency_list = []
     for detail_idx, detail in enumerate(details, 1):
         if not isinstance(detail, list):
-            print(f"跳过非列表的 detail[{detail_idx}]: {detail}")
+            #print(f"跳过非列表的 detail[{detail_idx}]: {detail}")
             continue
         currency_dict = {}
         for field in detail:
             if not isinstance(field, dict):
-                print(f"跳过非字典的 field: {field}")
+                #print(f"跳过非字典的 field: {field}")
                 continue
             field_name = field.get('name')
             field_ext = field.get('ext')
@@ -82,18 +82,18 @@ def extract_details(response):
     # 使用 extract_value 函数提取 'Details' 字段的值
     details = extract_value(response, 'Details')
     if not details:
-        print("未找到 'Details' 信息")
+        #print("未找到 'Details' 信息")
         return
     
     details_list = []
     for detail_idx, detail in enumerate(details, 1):
         if not isinstance(detail, list):
-            print(f"跳过非列表的 detail[{detail_idx}]: {detail}")
+            #print(f"跳过非列表的 detail[{detail_idx}]: {detail}")
             continue
         detail_dict = {}
         for field in detail:
             if not isinstance(field, dict):
-                print(f"跳过非字典的 field: {field}")
+                #print(f"跳过非字典的 field: {field}")
                 continue
             field_name = field.get('name')
             field_value = field.get('value')
@@ -103,16 +103,16 @@ def extract_details(response):
     
     return details_list
 
-def print_details(details_list):
-    if not details_list:
-        print("没有可打印的 Details 信息。")
-        return
+# def print_details(details_list):
+#     if not details_list:
+#         #print("没有可打印的 Details 信息。")
+#         return
     
-    for idx, detail in enumerate(details_list, 1):
-        print(f"Detail {idx}:")
-        for key, value in detail.items():
-            print(f"{key}: {value}")
-        print("-" * 40)
+#     for idx, detail in enumerate(details_list, 1):
+#         #print(f"Detail {idx}:")
+#         for key, value in detail.items():
+#             #print(f"{key}: {value}")
+#         #print("-" * 40)
 
 def extract_attachment_ext_names(response):
     """
@@ -134,10 +134,10 @@ def extract_attachment_ext_names(response):
                 try:
                     form = json.loads(form)
                 except json.JSONDecodeError as e:
-                    print(f"解析 'form' 字段时出错: {e}")
+                    #print(f"解析 'form' 字段时出错: {e}")
                     return None
             elif not isinstance(form, list):
-                print(f"未知的 'form' 字段类型: {type(form)}")
+                #print(f"未知的 'form' 字段类型: {type(form)}")
                 return None
 
             # 遍历 'form' 寻找 'Attachments' 字段
@@ -145,7 +145,7 @@ def extract_attachment_ext_names(response):
                 if isinstance(item, dict) and item.get('name') == 'Attachments':
                     ext_str = item.get('ext')
                     if not ext_str:
-                        print("未找到 'ext' 字段或其值为空。")
+                        #print("未找到 'ext' 字段或其值为空。")
                         return None
                     
                     # 按逗号分割
@@ -155,17 +155,17 @@ def extract_attachment_ext_names(response):
                     names = [os.path.splitext(name)[0] for name in ext_list]
                     return names
             
-            print("未找到 'Attachments' 字段。")
+            #print("未找到 'Attachments' 字段。")
             return None
         
         except json.JSONDecodeError as e:
-            print(f"响应不是有效的 JSON: {e}")
+            #print(f"响应不是有效的 JSON: {e}")
             return None
         except Exception as e:
-            print(f"发生错误: {e}")
+            #print(f"发生错误: {e}")
             return None
     else:
-        print("响应为空。")
+        #print("响应为空。")
         return None
     
 def extract_value(response,name):
@@ -177,34 +177,34 @@ def extract_value(response,name):
                 try:
                     form = json.loads(form)
                 except json.JSONDecodeError as e:
-                    print(f"解析 'form' 字段时出错: {e}")
+                    #print(f"解析 'form' 字段时出错: {e}")
                     return None
             elif isinstance(form, list):
                 pass 
             else:
-                print(f"未知的 'form' 字段类型: {type(form)}")
+                #print(f"未知的 'form' 字段类型: {type(form)}")
                 return None
             for item in form:
                 if isinstance(item, dict) and item.get('name') == name:
                     return item.get('value')
-            print("未找到"+str(name)+"字段。")
+            #print("未找到"+str(name)+"字段。")
             return None
         except requests.exceptions.JSONDecodeError as e:
-            print(f"响应不是有效的 JSON: {e}")
+            #print(f"响应不是有效的 JSON: {e}")
             return None
         except Exception as e:
-            print(f"发生错误: {e}")
+            #print(f"发生错误: {e}")
             return None
         
 
         except requests.exceptions.JSONDecodeError as e:
-            print(f"响应不是有效的 JSON: {e}")
+            #print(f"响应不是有效的 JSON: {e}")
             return None
         except Exception as e:
-            print(f"发生错误: {e}")
+            #print(f"发生错误: {e}")
             return None
     else:
-        print("未找到 "+str(response)+"字段")
+        #print("未找到 "+str(response)+"字段")
         return None
     
 def extract_fromId(response):
@@ -219,7 +219,7 @@ def extract_fromId(response):
         else:
             return None  # 如果 id 不是符合条件的字符串，设置为None
     else:
-        print("response 不是有效的字典，或者没有 'id' 字段")
+        #print("response 不是有效的字典，或者没有 'id' 字段")
         return None
     
 def get_details_list(name,details_list):
