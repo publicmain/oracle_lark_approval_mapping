@@ -276,7 +276,7 @@ def match_item_exact(items, target, key):
 def test(target):
     all_po = fetch_all_items("purchaseorder", columns="id, tranid")
 def mapping_entity_subsidiary(target):
-    print("mapping_entity_subsidiary target",target)
+    # print("mapping_entity_subsidiary target",target)
     target = re.sub(r'\s*\(fka[^)]*\)', '', target)
     all_subsidiaries = fetch_all_items("subsidiary", columns="id, name")
     matched = match_item(all_subsidiaries, target, "name", partial=True)

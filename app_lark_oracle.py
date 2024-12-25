@@ -5,7 +5,7 @@ from logger_config import get_loggers
 
 from config import get_tenant_access_token, create_vendor_bill_in_netsuite
 from instance import get_current_and_past_week_timestamps, get_approval_instance_ids
-from approval_detail import get_instance_details, extract_value, extract_fromId
+from approval_detail import get_instance_details, extract_value, extract_fromId,extract_attachment_ext_names
 from field_internel_id import mapping_date, mapping_entity_subsidiary, mapping_giro_paid,find_exist_PO
 from file_util import download_file_as_base64
 from request_body import generate_request_body
@@ -45,24 +45,24 @@ def handle_response(instance_id, response, success_message, success_logger, erro
     def contains_duplicate(obj, depth=0):
         indent = "  " * depth  # 用于格式化输出，使调试信息更易读
         if isinstance(obj, dict):
-            print(f"{indent}Checking a dictionary with {len(obj)} keys.")
+            # print(f"{indent}Checking a dictionary with {len(obj)} keys.")
             for key, value in obj.items():
-                print(f"{indent}  Checking key: {key}")
+                # print(f"{indent}  Checking key: {key}")
                 if contains_duplicate(value, depth + 2):
                     return True
         elif isinstance(obj, list):
-            print(f"{indent}Checking a list with {len(obj)} items.")
+            # print(f"{indent}Checking a list with {len(obj)} items.")
             for index, item in enumerate(obj):
-                print(f"{indent}  Checking index {index}: {item}")
+                # print(f"{indent}  Checking index {index}: {item}")
                 if contains_duplicate(item, depth + 2):
                     return True
         elif isinstance(obj, str):
-            print(f"{indent}Checking a string: '{obj}'")
+            # print(f"{indent}Checking a string: '{obj}'")
             if 'duplicate' in obj.lower():
-                print(f"{indent}  Found 'duplicate' in string.")
+                # print(f"{indent}  Found 'duplicate' in string.")
                 return True
-        else:
-            print(f"{indent}Encountered unsupported type: {type(obj)}")
+        # else:
+        #     print(f"{indent}Encountered unsupported type: {type(obj)}")
         return False
 
     # 递归检查响应中是否包含“duplicate”
@@ -170,8 +170,8 @@ def process_po_approvals():
     
     results = []
     for instance_id in instance_ids:
-        print(instance_id)
-        if instance_id == "A709021D-E0A1-46E8-A0E8-0F5AF1C550EF":
+        # print(instance_id)
+        # if instance_id == "A709021D-E0A1-46E8-A0E8-0F5AF1C550EF":
             try:
                 instance_response = get_instance_details(instance_id)
                 
@@ -227,10 +227,10 @@ def process_polinked_approvals():
     )
     
     results = []
-    print("instance_ids:", instance_ids)
+    # print("instance_ids:", instance_ids)
     for instance_id in instance_ids:
             
-        # if instance_id == "45AAAEB5-0EFB-4516-B90D-9AE80AA87D5D":
+        # if instance_id == "9886CB55-F8E0-412D-B3EE-618F34CF0936":
             try:
                 instance_response = get_instance_details(instance_id)
                 Entity = extract_value(instance_response, "Entity")
@@ -239,6 +239,7 @@ def process_polinked_approvals():
                 trandate = extract_value(instance_response, "Date of Invoice")
                 Serial_Number = extract_value(instance_response, "Serial no.")
                 Attachment = extract_value(instance_response, "Attachments")
+                Attachment_names = extract_attachment_ext_names(instance_response)
                 # print("Polinked bill Serial_Number:", Serial_Number)
                 subsidiary_id = mapping_entity_subsidiary(Entity)
                 duedate = mapping_date(duedate)
@@ -248,14 +249,16 @@ def process_polinked_approvals():
                 attachment_info = []
                 if Attachment:
                     attachment_urls = Attachment if isinstance(Attachment, list) else [Attachment]
-                    for attachment_url in attachment_urls:
-                        base64_attachment, filename, file_extension, _ = download_file_as_base64(attachment_url)
+                    for i in range(len(attachment_urls)):
+                        base64_attachment, filename, file_extension, _ = download_file_as_base64(attachment_urls[i])
+                        # print("filename:", Attachment_names[i])
                         if base64_attachment:
                             if not file_extension:
                                 file_extension = filename.split('.')[-1] if '.' in filename else 'txt'
                             attachment_item = {
                                 "type": file_extension,
-                                "title": filename,
+                                "title": Attachment_names[i],
+                                # "encodeData": base64_attachment
                                 "encodeData": base64_attachment
                             }
                             attachment_info.append(attachment_item)
