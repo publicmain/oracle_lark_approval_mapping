@@ -280,7 +280,7 @@ def mapping_entity_subsidiary(target):
     target = re.sub(r'\s*\(fka[^)]*\)', '', target)
     all_subsidiaries = fetch_all_items("subsidiary", columns="id, name")
     matched = match_item(all_subsidiaries, target, "name", partial=True)
-    #print("subsidiary matched",matched)
+    # print("subsidiary matched",matched)
     if matched:
         return matched["id"]
     else:

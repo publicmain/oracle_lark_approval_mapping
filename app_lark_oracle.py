@@ -120,6 +120,7 @@ def process_bill_approvals():
     results = []
     for instance_id in instance_ids:
         try:
+            print(instance_id)
             instance_response = get_instance_details(instance_id)
             result = generate_request_body(instance_response, "bill")
             

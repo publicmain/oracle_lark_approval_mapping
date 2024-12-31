@@ -23,10 +23,10 @@ def get_tenant_access_token():
     
 base_url = "https://6227405.suitetalk.api.netsuite.com/services/rest/query/v1/suiteql"
 oauth = OAuth1(
-        client_key='c562603650f92936a15174b910d95837bf7184922c717846b84521c8bcf16ccd',
-        client_secret='61945f0ac123e3bec725c8d30319926e612f32c2bbac96bfeb566826380e18c1',
-        resource_owner_key='aa01830becaddba8834618b250b190414d812c55167e3ae33351646920458804',
-        resource_owner_secret='85663e84d1f32c8bcab37b52a9c6c8ca6a60ab03600410448c0a960aacb1fe4b',
+        client_key='22f7e356baa824586ad25ba0711d49a7e676233a6d972ee6c59c6a18c824285c',
+        client_secret='85c540c74f8c08f629a4613b64060628b9757453404e095c66d47e4bb21a85f6',
+        resource_owner_key='6db9953acfe25bf63bfa4335a538b3ec3568a4b39e593992c8bc5c0596f26335',
+        resource_owner_secret='25f4ddd48d549925b1371f823016cab188e5be8f8175cb16356f19c4c50b741e',
         realm='6227405',
         signature_method='HMAC-SHA256',
         signature_type='auth_header'
@@ -41,15 +41,15 @@ query_payload = {
 
 def create_vendor_bill_in_netsuite(request_body):
     oauth = OAuth1(
-        client_key='c562603650f92936a15174b910d95837bf7184922c717846b84521c8bcf16ccd',
-        client_secret='61945f0ac123e3bec725c8d30319926e612f32c2bbac96bfeb566826380e18c1',
-        resource_owner_key='aa01830becaddba8834618b250b190414d812c55167e3ae33351646920458804',
-        resource_owner_secret='85663e84d1f32c8bcab37b52a9c6c8ca6a60ab03600410448c0a960aacb1fe4b',
+        client_key='22f7e356baa824586ad25ba0711d49a7e676233a6d972ee6c59c6a18c824285c',
+        client_secret='85c540c74f8c08f629a4613b64060628b9757453404e095c66d47e4bb21a85f6',
+        resource_owner_key='6db9953acfe25bf63bfa4335a538b3ec3568a4b39e593992c8bc5c0596f26335',
+        resource_owner_secret='25f4ddd48d549925b1371f823016cab188e5be8f8175cb16356f19c4c50b741e',
         realm='6227405',
         signature_method='HMAC-SHA256',
         signature_type='auth_header'
     )
-    NETSUITE_RESTLET_URL = "https://6227405.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=2953&deploy=1"
+    NETSUITE_RESTLET_URL = "https://6227405.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=2979&deploy=1"
     headers = {
         "Content-Type": "application/json"
     }

@@ -308,6 +308,8 @@ def generate_request_body(instance_response,type):
     return request_body, Serial_Number
 
 if __name__ == "__main__":
-    instanse = get_instance_details("A709021D-E0A1-46E8-A0E8-0F5AF1C550EF")
-    request_body, Serial_Number = generate_request_body(instanse,"po")
+    instanse = get_instance_details("51C4222F-97A1-4B8F-9EFC-52BF75D19DA0")
+    request_body, Serial_Number = generate_request_body(instanse,"bill")
+    # print("request_body:", json.dumps(request_body, indent=4))
+    # print("Serial_Number:", Serial_Number)
        
