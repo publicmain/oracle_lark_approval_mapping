@@ -23,6 +23,7 @@ def generate_request_body(instance_response,type):
     # print("Entity:", Entity)
     Vendor = extract_value(instance_response, "Vendor")
     Invoice_number = extract_value(instance_response, "Invoice Number")
+    # print("Invoice_number", Invoice_number)
     Date_of_Invoice_PO = extract_value(instance_response, "Transaction date")
     Date_of_Invoice_bill = extract_value(instance_response, "Date of Invoice")
     Currency = extract_value(instance_response, "Currency")
@@ -296,7 +297,7 @@ def generate_request_body(instance_response,type):
             "exchangerate": exchange_rate,
             "custbody_document_date": trandate_bill,
             # "tranid":"for_testing(ignore)"+str(Serial_Number)+"5",
-            "tranid":Serial_Number,
+            "tranid":Invoice_number,
             # "tranid": "test042",
             "custbody7": 6637,
             "custbody_giropaidorpaid": giro_paid,

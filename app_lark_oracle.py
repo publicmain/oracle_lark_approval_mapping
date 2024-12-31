@@ -135,6 +135,7 @@ def process_bill_approvals():
             request_body, serial_number = result
             if request_body is None:
                 continue
+            
             response = create_vendor_bill_in_netsuite(request_body)
             formid = extract_fromId(response)
             # print(formid)
@@ -235,6 +236,8 @@ def process_polinked_approvals():
             try:
                 instance_response = get_instance_details(instance_id)
                 Entity = extract_value(instance_response, "Entity")
+                Invoice_Number = extract_value(instance_response, "Invoice Number")
+                print("Invoice_Number:", Invoice_Number)
                 duedate = extract_value(instance_response, "Due Date")
                 Giro_paid = extract_value(instance_response, "Giro Pay / Paid")
                 trandate = extract_value(instance_response, "Date of Invoice")
@@ -310,7 +313,7 @@ def process_polinked_approvals():
                         "duedate": duedate,
                         "custbody_document_date": trandate,
                         # "tranid": "for_testing(ignore)" + str(Serial_Number) + "2",
-                        "tranid":Serial_Number,
+                        "tranid":Invoice_Number,
                         "custbody7": 6637,
                         "custbody_giropaidorpaid": giro_paid,
                         "attachment": attachment_info
