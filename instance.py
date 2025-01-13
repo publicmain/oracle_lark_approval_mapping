@@ -13,7 +13,7 @@ def get_current_and_past_week_timestamps() -> tuple[int, int]:
         Tuple[int, int]: (start_time, end_time)
     """
     end_time_dt = datetime.now()
-    start_time_dt = end_time_dt - timedelta(days=3)  
+    start_time_dt = end_time_dt - timedelta(days=7)  
     START_TIME = int(start_time_dt.timestamp() * 1000)
     END_TIME = int(end_time_dt.timestamp() * 1000)
 
@@ -78,7 +78,7 @@ def get_approval_instance_ids(
 
             print(f"Fetched {len(instance_code_list)} instances. Total so far: {len(instance_codes)}")
 
-            time.sleep(0.1)
+            
 
         except requests.exceptions.RequestException as e:
             print(f"Request failed: {e}")

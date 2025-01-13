@@ -5,7 +5,7 @@
 /* 修改后记得save和upload file，否则云端还是旧的脚本，自然仍旧报错*/
 
 
-define(['N/record', 'N/format', 'N/file', 'N/encode','N/search'], function (record, format, file, encode) {
+define(['N/record', 'N/format', 'N/file', 'N/encode','N/search'], function (record, format, file, encode, search) {
     function parseDate(dateString) {
         return format.parse({
             value: dateString,
@@ -161,7 +161,7 @@ define(['N/record', 'N/format', 'N/file', 'N/encode','N/search'], function (reco
                 fieldId: "custbody_giropaidorpaid",
                 value: requestBody.custbody_giropaidorpaid
             });//Giro paid/paid
-
+  
 
         }
         // var tranid = requestBody.tranid;
@@ -321,6 +321,12 @@ define(['N/record', 'N/format', 'N/file', 'N/encode','N/search'], function (reco
                 value: requestBody.custbody7
             });//submitted by: Jiayu Hu 
 
+            objRecord.setValue({
+                fieldId: "custbody_ml_billcreatefromlark",
+                value: true
+            });//auto approved
+            
+            
             objRecord.setValue({
                 fieldId: "custbody_giropaidorpaid",
                 value: requestBody.custbody_giropaidorpaid
@@ -569,7 +575,7 @@ define(['N/record', 'N/format', 'N/file', 'N/encode','N/search'], function (reco
                 id: recordId,
                 values: {
                     tranid: requestBody.tranid,
-                    nextapprover: 6542,//David
+                    nextapprover: 4095,//Yanxi
                     approvalstatus: 2,
 
 
@@ -587,7 +593,7 @@ define(['N/record', 'N/format', 'N/file', 'N/encode','N/search'], function (reco
                 id: recordId,
                 values: {
                     approvalstatus: 1,
-                    nextapprover: 6542,//David
+                    nextapprover: 4095,//Yanxi
                     /*  custbody_approval_delegate:4095,//Yancy Dong */
 
                 },

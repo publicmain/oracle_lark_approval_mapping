@@ -2,7 +2,7 @@ import requests
 import json
 import os
 from config import get_tenant_access_token
-
+from datetime import datetime, timezone
 def get_instance_details(instance):
     base_url = "https://open.larksuite.com"  
     endpoint = "/open-apis/approval/v4/instances/{instance}"
@@ -20,7 +20,9 @@ def get_instance_details(instance):
     else:
 
         return response.text
-# #print(get_instance_details("8F292381-5054-4F17-9424-C9D4CFFA596D").json())
+response = get_instance_details("509EC1B1-D194-4F7D-93DA-AA1CB95C17C1").json()
+# print(response)
+
 
 def extract_details(response):
     details = extract_value(response, 'Details')
@@ -190,7 +192,19 @@ def extract_value(response,name):
     else:
         #print("未找到 "+str(response)+"字段")
         return None
-    
+def extract_end_time(response):
+    """
+    从实例详情中提取最顶层的 'end_time' 字段。
+
+    :param instance: 实例ID
+    :return: 'end_time' 的值（str）或错误信息
+    """
+    if isinstance(response, requests.Response):
+        data = response.json()
+        end_time = data['data']['end_time']
+        return end_time
+    else:
+        return None
 def extract_fromId(response):
 
     if isinstance(response, dict) and 'id' in response:

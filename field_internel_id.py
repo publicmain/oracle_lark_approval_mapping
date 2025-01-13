@@ -1,71 +1,53 @@
 from datetime import datetime, timedelta
 import re
 import requests
+import time
+from datetime import datetime
 from typing import List, Optional
 from config import base_url,oauth,headers
+from approval_detail import get_instance_details
 postperiod = {
     '157': 'Aug 2020',
     '158': 'Sep 2020',
     '159': 'Oct 2020',
     '161': 'Nov 2020',
     '162': 'Dec 2020',
-    '101': 'FY 2021',
-    '119': 'FY 2022',
-    '137': 'FY 2023',
-    '138': 'Q1 2023',
     '139': 'Jan 2023',
     '140': 'Feb 2023',
     '141': 'Mar 2023',
-    '142': 'Q2 2023',
     '143': 'Apr 2023',
     '144': 'May 2023',
     '145': 'Jun 2023',
-    '146': 'Q3 2023',
     '147': 'Jul 2023',
     '148': 'Aug 2023',
     '149': 'Sep 2023',
-    '150': 'Q4 2023',
     '151': 'Oct 2023',
     '152': 'Nov 2023',
     '153': 'Dec 2023',
-    '154': 'Adjust 2023 (12/31 - 12/31)',
-    '296': 'FY 2024',
-    '297': 'Q1 2024',
     '298': 'Jan 2024',
     '299': 'Feb 2024',
     '300': 'Mar 2024',
-    '301': 'Q2 2024',
     '302': 'Apr 2024',
     '303': 'May 2024',
     '304': 'Jun 2024',
-    '305': 'Q3 2024',
     '306': 'Jul 2024',
     '307': 'Aug 2024',
     '308': 'Sep 2024',
-    '309': 'Q4 2024',
     '310': 'Oct 2024',
     '311': 'Nov 2024',
     '312': 'Dec 2024',
-    '331': 'Adjust 2024 (12/31 - 12/31)',
-    '313': 'FY 2025',
-    '314': 'Q1 2025',
     '315': 'Jan 2025',
     '316': 'Feb 2025',
     '317': 'Mar 2025',
-    '318': 'Q2 2025',
     '319': 'Apr 2025',
     '320': 'May 2025',
     '321': 'Jun 2025',
-    '322': 'Q3 2025',
     '323': 'Jul 2025',
     '324': 'Aug 2025',
     '325': 'Sep 2025',
-    '326': 'Q4 2025',
     '327': 'Oct 2025',
     '328': 'Nov 2025',
-    '329': 'Dec 2025',
-    '330': 'Adjust 2025 (12/31 - 12/31)',
-    '366': 'FY 2026'
+    '329': 'Dec 2025'
 }
 
 GST_dict = {
@@ -273,8 +255,7 @@ def match_item_exact(items, target, key):
         return [next((item for item in items if item.get(key).startswith(t.split()[0])), None) for t in target]
     else:
         return next((item for item in items if item.get(key).startswith(target.split()[0])), None)
-def test(target):
-    all_po = fetch_all_items("purchaseorder", columns="id, tranid")
+
 def mapping_entity_subsidiary(target):
     # print("mapping_entity_subsidiary target",target)
     target = re.sub(r'\s*\(fka[^)]*\)', '', target)
@@ -583,23 +564,23 @@ def mapping_date(date_str):
 
 
 
-def mapping_postperiod(input_date):
-    """
-    根据输入日期（格式为 DD/MM/YYYY）在字典中查找匹配的键。
-    
-    :param input_date: 输入的日期字符串，例如 '11/20/2024'
-    :param id_period_dict: 包含 Internal ID 和 Period Name 的字典
-    :return: 匹配的键，如果未找到则返回 None
-    """
-    date_object = datetime.strptime(input_date, "%d/%m/%Y")
-    
-    formatted_date = date_object.strftime("%b %Y")
-    
-    for key, value in postperiod.items():
-        if formatted_date == value:
-            return key
-    return None
+def mapping_end_time(target):
 
+    """
+    从实例详情中提取最顶层的 'end_time' 字段。
+
+    :param instance: 实例ID
+    :return: 'start_time' 的值（str）或错误信息
+    """
+    if target:
+        timeStamp = float(int(target) / 1000)  
+        timeArray = time.localtime(timeStamp) 
+        real_time = time.strftime("%Y-%m-%d %H:%M:%S", timeArray) 
+        date_obj = datetime.strptime(real_time, "%Y-%m-%d %H:%M:%S")
+        formatted_date_ddmmyyyy = date_obj.strftime("%d/%m/%Y")
+        return formatted_date_ddmmyyyy
+    else:
+        return 157
 def mapping_taxcode(target):
     """
     根据给定的 Name 列表，返回对应的 Internal ID 列表和 Rate 列表。

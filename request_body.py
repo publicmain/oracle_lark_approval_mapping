@@ -2,9 +2,9 @@ import requests
 import json
 from config import get_tenant_access_token
 from instance import get_current_and_past_week_timestamps, get_approval_instance_ids
-from approval_detail import get_details_list, extract_details, extract_value,extract_attachment_ext_names,get_instance_details
+from approval_detail import get_details_list, extract_details, extract_end_time,extract_value,extract_attachment_ext_names,get_instance_details
 from field_internel_id import (mapping_date, mapping_entity_subsidiary, mapping_GL_Account, mapping_Vendor,
-                               mapping_division, mapping_postperiod, mapping_giro_paid,mapping_business, mapping_product_code,
+                               mapping_division, mapping_end_time,mapping_giro_paid,mapping_business, mapping_product_code,
                                mapping_product_type, mapping_project_code, mapping_scheme, mapping_currency,mapping_item,mapping_taxcode,mapping_Location)
 from file_util import download_file_as_base64
 from datetime import datetime
@@ -20,9 +20,13 @@ def generate_request_body(instance_response,type):
     # print("instance_response:", instance_response)
     Serial_Number = extract_value(instance_response, "Serial no.")
     Entity = extract_value(instance_response, "Entity")
-    # print("Entity:", Entity)
     Vendor = extract_value(instance_response, "Vendor")
     Invoice_number = extract_value(instance_response, "Invoice Number")
+    end_time = extract_end_time(instance_response)
+    if Invoice_number:
+        if len(Invoice_number) > 45:
+            Invoice_number = Invoice_number[:44]
+    
     # print("Invoice_number", Invoice_number)
     Date_of_Invoice_PO = extract_value(instance_response, "Transaction date")
     Date_of_Invoice_bill = extract_value(instance_response, "Date of Invoice")
@@ -67,6 +71,7 @@ def generate_request_body(instance_response,type):
     expense_amounts = get_details_list("Expense Amount(excl GST)", details_list)
     unit_prices = get_details_list("Unit Price", details_list)
     tax_amounts = get_details_list("GST amount", details_list)
+    
     # print("tax_amounts:", tax_amounts)
     #print("original taxcodes:", taxcodes)
     # print("orginal items:", items)
@@ -114,6 +119,9 @@ def generate_request_body(instance_response,type):
     taxcodes_po, rates_po = mapping_taxcode(taxcodes_po)
     taxcodes_bill, rates_bill = mapping_taxcode(taxcodes_bill)
     giro_paid = mapping_giro_paid(Giro_paid)
+    end_time = mapping_end_time(end_time)
+    # print("end_time:", end_time)
+    # print("start_time:", start_time)
     # print("taxcodes:", taxcodes)
     # print("rates:", rates)
     # print("items:", items)
@@ -217,7 +225,7 @@ def generate_request_body(instance_response,type):
             request_body = {
                 "posttype": "po",
                 "entity": str(vendor_id),
-                "trandate": transaction_date,
+                "trandate": end_time,
                 "subsidiary": str(subsidiary_id),
                 # "tranid":"for_testing(ignore  2)" + str(Serial_Number),
                 "tranid":Serial_Number,
@@ -248,7 +256,7 @@ def generate_request_body(instance_response,type):
                     "rate": unit_prices[i],
                     "amount": item_amounts[i],
                     "taxcode": taxcodes_po[i],
-                    "taxrate": rates_bill[i],
+                    "taxrate": rates_po[i],
                     "cseg_business": Business[i],   
                     # "cseg_product": "1",
                     "cseg_scheme": Scheme[i],
@@ -285,7 +293,7 @@ def generate_request_body(instance_response,type):
         
         request_body = {
             "posttype": "bill",
-            "trandate": trandate_bill,
+            "trandate": end_time,
             "duedate": duedate,
             "entity": vendor_id,
             "subsidiary": subsidiary_id,
@@ -296,8 +304,8 @@ def generate_request_body(instance_response,type):
             "currency": currency,
             "exchangerate": exchange_rate,
             "custbody_document_date": trandate_bill,
-            # "tranid":"for_testing(ignore)"+str(Serial_Number)+"5",
-            "tranid":Invoice_number,
+            "tranid":"for_testing(ignor e)"+str(Serial_Number),
+            # "tranid":Invoice_number,
             # "tranid": "test042",
             "custbody7": 6637,
             "custbody_giropaidorpaid": giro_paid,
@@ -309,8 +317,9 @@ def generate_request_body(instance_response,type):
     return request_body, Serial_Number
 
 if __name__ == "__main__":
-    instanse = get_instance_details("51C4222F-97A1-4B8F-9EFC-52BF75D19DA0")
+    instanse = get_instance_details("660D7BAD-0BB5-4360-BEBF-EFA92F7BFCB7")
     request_body, Serial_Number = generate_request_body(instanse,"bill")
     # print("request_body:", json.dumps(request_body, indent=4))
     # print("Serial_Number:", Serial_Number)
+    #如果说出现了invalid tax code，说明trandate是01/01/1970，就意味着这个bill还没有完成审批流程，还是在under review状态
        
